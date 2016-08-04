@@ -37,33 +37,33 @@ You can go through the detailed [README](https://github.com/boltdb/bolt) and [Go
 
 Opening database is as simple as: 
 
-```
+{% highlight go %}
 db, err := bolt.Open("my.db", 0666, &bolt.Options{ReadOnly: true})
 if err != nil {
     log.Fatal(err)
 }
-```
+{% endhighlight %}
 
 Add a key value (`answer` = `42`):
 
-```
+{% highlight go %}
 db.Update(func(tx *bolt.Tx) error {
     b := tx.Bucket([]byte("MyBucket"))
     err := b.Put([]byte("answer"), []byte("42"))
     return err
 })
-```
+{% endhighlight %}
 
 Fetch a value by key: 
 
-```
+{% highlight go %}
 db.View(func(tx *bolt.Tx) error {
     b := tx.Bucket([]byte("MyBucket"))
     v := b.Get([]byte("answer"))
     fmt.Printf("The answer is: %s\n", v)
     return nil
 })
-```
+{% endhighlight %}
 
 ### Command line utility - `bolt`
  
