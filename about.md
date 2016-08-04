@@ -3,28 +3,17 @@ layout: page
 title: About
 ---
 
-<p class="message">
-  Hey there! This page is included as an example. Feel free to customize it for your own use upon downloading. Carry on!
-</p>
+Hello, my name is Manoj Awasthi. I am a programmer in my thirties, aspiring entrepreneur, autodidact and family man. I am passionate about technology and believe that technology can make a huge difference to humanity.
 
-In the novel, *The Strange Case of Dr. Jeykll and Mr. Hyde*, Mr. Poole is Dr. Jekyll's virtuous and loyal butler. Similarly, Poole is an upstanding and effective butler that helps you build Jekyll themes. It's made by [@mdo](https://twitter.com/mdo).
+I tweet from [@awmanoj](https://twitter.com/awmanoj) and email from last_name dot first_name @gmail.com.
 
-There are currently two themes built on Poole:
+I also blog at [this site](http://www.manojawasthi.com/), [this site](http://whatilearned2day.wordpress.com/) (older technical stuff) and [this site](http://whaticlickedtoday.wordpress.com/) (my attempt at photography).
 
-* [Hyde](http://hyde.getpoole.com)
-* [Lanyon](http://lanyon.getpoole.com)
+I love reading books, learning new things, programming and want to build useful things.
 
-Learn more and contribute on [GitHub](https://github.com/poole).
+There is one entrepreneurial venture which I gave a serious attempt to – an e-commerce into flowers, chocolates and bouquets: [Floshowers](http://www.floshowers.com). I moonlighted this venture along with job with a friend in Jan, 2011 and continued with this for over  year and half before deciding to quit it in Oct’ 2012. Floshowers continues to exist with rest of the team. It was a huge learning experience for me. I looked into operations and marketing and technology part of the business (startups in early phase are like this only!). Floshowers was based on a Ruby on Rails based ecommerce framework [Spree](https://spreecommerce.com/) and was listed in the Spree Showcase. Reasons for quitting Floshowers were personal issues and I still have great relation with my friend.
 
-## Setup
+Thanks to technology, world is more connected today than it ever was. You can connect with me at [LinkedIn](http://www.linkedin.com/in/manojawasthi), [Facebook](https://www.facebook.com/awasthi.manoj), follow me on [Twitter](https://twitter.com/awmanoj), check me at [stackoverflow](http://stackoverflow.com/users/83602/manoj-awasthi) or drop a line at email (address above).
 
-Some fun facts about the setup of this project include:
+You can check what photos I click either at [my blog](http://whaticlickedtoday.wordpress.com/) OR on [flickr](http://www.flickr.com/photos/awmanoj).You can check what I code at [Github](https://github.com/awmanoj).
 
-* Built for [Jekyll](http://jekyllrb.com)
-* Developed on GitHub and hosted for free on [GitHub Pages](https://pages.github.com)
-* Coded with [Sublime Text 2](http://sublimetext.com), an amazing code editor
-* Designed and developed while listening to music like [Blood Bros Trilogy](https://soundcloud.com/maddecent/sets/blood-bros-series)
-
-Have questions or suggestions? Feel free to [open an issue on GitHub](https://github.com/poole/issues/new) or [ask me on Twitter](https://twitter.com/mdo).
-
-Thanks for reading!
