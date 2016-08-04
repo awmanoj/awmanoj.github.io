@@ -45,6 +45,7 @@ if err != nil {
 ```
 
 Add a key value (`answer` = `42`):
+
 ```
 db.Update(func(tx *bolt.Tx) error {
     b := tx.Bucket([]byte("MyBucket"))
@@ -54,6 +55,7 @@ db.Update(func(tx *bolt.Tx) error {
 ```
 
 Fetch a value by key: 
+
 ```
 db.View(func(tx *bolt.Tx) error {
     b := tx.Bucket([]byte("MyBucket"))
@@ -94,14 +96,14 @@ Note that the `VIRTUAL` memory is exactly the total size of boltdb. Also note fr
 
 ### Caveats & Limitations 
 
-* Bolt is good for `read intensive` workloads. Random writes can be slow especially as the database (file) size grows.
+* Bolt is good for read intensive workloads. Random writes can be slow especially as the database (file) size grows.
 * Bolt uses a B+tree internally so there can be a lot of random page access. SSDs provide a significant performance boost over spinning disks. 
 * Bolt can handle databases much larger than the available physical RAM, provided its memory-map fits in the process virtual address space. It may be problematic on 32-bits systems.
 * The data structures in the Bolt database are memory mapped so the data file will be endian specific. This means that you cannot copy a Bolt file from a little endian machine to a big endian machine and have it work. For most users this is not a concern since most modern CPUs are little endian.
 
 ### Result
 
-We successfully migrated to using `boltdb` for our service. The service handles `many thousands of QPS`, is not limited by physical RAM on the machine and is working well. 
+We successfully migrated to using `boltdb` for our service. The service handles many thousands of QPS, is not limited by physical RAM on the machine and is working well. 
 
 `BoltDB` looks awesome. Do give it a try if this fits your use-case. 
 
