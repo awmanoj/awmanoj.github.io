@@ -19,6 +19,7 @@ author:
 
 paginate:         5
 
+googl_analytics: UA-82105506-1
 # Custom vars
 version:          2.1.0
 
