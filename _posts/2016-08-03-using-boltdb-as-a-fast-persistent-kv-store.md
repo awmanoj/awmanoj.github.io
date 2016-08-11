@@ -3,6 +3,10 @@ layout: post
 title: Using Boltdb as a fast, persistent key value store
 ---
 
+<hr/>
+_Originally posted on [Tokopedia Tech Blog](http://tech.tokopedia.com/blog/using-boltdb-as-a-fast-persistent-kv-store/)_
+<hr/>
+
 Recently, we at [Tokopedia](https://www.tokopedia.com/) rearchitected a [golang](https://golang.org/) microservice which maps an Image (as in picture, photo, ..) ID to the fully qualified server name that hosts the image.
 
 ### A bit of context is always good..
