@@ -8,7 +8,7 @@ categories: tech
 
 [Consul](https://www.consul.io/) is a service discovery and configuration management solution by Hashicorp, the company which also developed [Vagrant, Vault and many other popular products](https://www.hashicorp.com/#products). Consul is written in golang, is unbelievably simple to setup, scalable and fault-tolerant. While it is in the same league of softwares as [etcd](https://coreos.com/etcd/), [zookeeper](https://zookeeper.apache.org/), etc. it has a distinguishing support for multiple data centres. 
 
-In this post I will touch upon how can you setup a consul cluster and consul web UI. I’ll also talk briefly about how can you use it as a configuration management solution using consul-template and how to do service discovery both over DNS and HTTP interface.
+In this post I will touch upon how can you setup a consul cluster and consul web UI. I’ll also talk briefly about how can you use it as a configuration management solution using consul-template. 
 
 ### Quick reference to concepts 
 
