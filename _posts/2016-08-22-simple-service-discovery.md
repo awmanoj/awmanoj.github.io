@@ -1,6 +1,6 @@
 ---
 layout: post
-title: Simple service discovery and configuration management with Consul 
+title: Simple configuration management with Consul 
 date:   2016-08-22 07:20:22 +0700
 author: Manoj Awasthi
 categories: tech
