@@ -8,12 +8,12 @@ categories: tech
 
 [Consul](https://www.consul.io/) is a service discovery and configuration management solution by Hashicorp, the company which also developed [Vagrant, Vault and many other popular products](https://www.hashicorp.com/#products). Consul is written in golang, is unbelievably simple to setup, scalable and fault-tolerant. While it is in the same league of softwares as [etcd](https://coreos.com/etcd/), [zookeeper](https://zookeeper.apache.org/), etc. it has a distinguishing support for multiple data centres. 
 
-In this post I will touch upon how can you setup a consul cluster and consul web UI. I’ll also talk briefly about how can you use it as a configuration management solution using consul-template. 
+In this post I’ll also talk briefly about how can you use it as a configuration management solution using consul-template. 
 
 ### Quick reference to concepts 
 
-* A Consul cluster consists of one or more nodes running consul service in `server` mode. 
-* A Consul service instance can run in either `server` or `client` mode.
+* A Consul cluster consists of one or more nodes running consul in `server` mode. 
+* A Consul service can run in either `server` or `client` mode.
 * A Consul cluster needs a quorum (majority) of nodes for master election.
 * At the minimum, you should create a cluster of 3-5 nodes for high availability.
 * Consul cluster uses [Gossip protocol](https://www.consul.io/docs/internals/gossip.html) for cluster communication (membership, broadcasting) and it is an eventually consistent protocol.
