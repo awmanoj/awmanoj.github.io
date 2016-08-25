@@ -99,8 +99,8 @@ I can read your mind - config changed but who reloads the application? Well, you
 
 Go templating language is very comprehensive and you can generate almost any configuration that you want. In addition there is a support for plugins written in golang which bring almost infinite power to what you can achieve. 
 
-I will write about service discovery with consul, consul watch and consul-datadog integrations in some other post later (this is already getting long). 
+It is very common to use `consul` and `consul-template` for generating and keeping nginx configuration uptodate. 
 
-If you have any questions on this and are not able to find easily over internet - you can shoot your question at me and I may try to find the answer for you - reach me on [twitter](https://twitter.com/awmanoj) and mail (last_name . first_name @ gmail.com). 
+Time permitting, I will write about service discovery with consul, consul watch and consul-datadog integrations in some other post later (this is already getting long). 
 
 Happy Consul!
