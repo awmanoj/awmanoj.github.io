@@ -1,7 +1,6 @@
 ---
 layout: post
-title: Service discovery & configuration management with Consul
-date:   2016-08-28 21:20:22 +0700
+title: Service discovery, configuration management with Consul
 author: Manoj Awasthi
 categories: tech
 ---
@@ -13,7 +12,7 @@ If you have a reasonably growing setup of services then you would already know w
 	cacheA = 192.168.1.1:6379
 	cacheB = 192.168.1.2:6379
 [Postgres]
-	mainDb = 192.168.1.3:5432 // ignore username, password etc. 
+	mainDb = 192.168.1.3:5432 
 ... 
 {% endhighlight %}
 
@@ -112,23 +111,23 @@ With consul:
 file: app.prod.ini
 {% highlight bash %}
 [Redis]
-    cacheA = 192.168.1.1:6379
-    cacheB = 192.168.1.2:6379
+	cacheA = 192.168.1.1:6379
+	cacheB = 192.168.1.2:6379
 [Postgres]
-    mainDb = 192.168.1.3:5432 // ignore username, password etc.
-...
+	mainDb = 192.168.1.3:5432 
 {% endhighlight %}
 
 with a consul template file: 
 
 file: app.prod.ini.ctmpl
 {% highlight bash %}
+{% raw %}
 [Redis]
     cacheA = {{ key "service/redis/cacheA" }}
     cacheB = {{ key "service/redis/cacheB" }}
 [Postgres]
     mainDb = {{ key "service/postgresql/mainDb" }} // ignore username, password etc.
-...
+{% endraw %}
 {% endhighlight %}
 
 
@@ -217,6 +216,7 @@ server {
 
 file: awesome-service.awesome.net.ctmpl
 {% highlight bash %} 
+{% raw %}
 upstream backend {
     {{range service "web@dc1"}}
     server {{.Address}}:{{.Port}}{{end}}
@@ -229,6 +229,7 @@ server {
     }
 
 }
+{% endraw %}
 {% endhighlight %}
 
 Consul returns, by default, only healthy services. I have just touched the tip of iceberg with respect to the possibilities with consul - an introduction. If you aren't tied up to another configuration management solution do give it a try. 

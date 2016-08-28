@@ -1,6 +1,7 @@
 # Dependencies
 markdown:         kramdown
 highlighter:      pygments
+excerpt_separator: ""
 
 # Permalinks
 permalink:        pretty
