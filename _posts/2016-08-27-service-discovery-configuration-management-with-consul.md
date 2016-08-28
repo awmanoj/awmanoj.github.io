@@ -73,7 +73,7 @@ upstream backend {
 
 ### consul.. ! 
 
-Consul is a very simple service discovery and configuration management solution. This means it can store configuration data or rather any kind of key-value data. It can also maintain services information i.e. services can register and deregister with consul. Consul provides HTTP and DNS APIs for service discovery. It is distributed, HA and datacenter-aware. 
+[Consul](https://www.consul.io/) is a very simple service discovery and configuration management solution. This means it can store configuration data or rather any kind of key-value data. It can also maintain services information i.e. services can register and deregister with consul. Consul provides HTTP and DNS APIs for service discovery. It is distributed, HA and datacenter-aware. 
 
 The last property is particularly useful - if you have multiple data centers (multiple availability zones in AWS or may be a DC from AWS and another on from Google or Alibaba) then you can have a consul cluster on each of them which can contain cluster specific configuration (key value stores, service information) and each of those clusters can be made to be aware of the other. As needed configuration can be replicated too across data centers.
 
