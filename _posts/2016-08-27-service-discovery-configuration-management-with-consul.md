@@ -184,7 +184,7 @@ There are few things here to note. We can specify a custom check script which is
 
 This basically checks TCP connection on the specified port. There is more comprehensive list of possible checks in docs. 
 
-Other thing to note is the name of the service - this is an identifier of the service and hence it should be chosen as service identifier. It is recommended though to keep it readable and easy to remember. If your service A has a codename like the greek god (what else?) like zeus then you can use that here.
+Other thing to note is the name of the service - this is an identifier of the service and hence it should be chosen as service identifier. It is recommended though to keep it readable and easy to remember. If your service A has a codename e.g. some greek god (what else?) like zeus then you can use that here.
 
 Once your service is registered with consul, you can check it on both HTTP and DNS interface. Let's see how it is to check it on DNS interface using `dig` unix utility: 
 
