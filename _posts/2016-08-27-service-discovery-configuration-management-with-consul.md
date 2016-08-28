@@ -104,7 +104,7 @@ So - let's get back to our examples above. To recap, we had three services A, B 
 
 With consul: 
 
-1. you replace the fixed configuration file in your code:
+o. you replace the fixed configuration file in your code:
 
 file: app.prod.ini
 {% highlight bash %}
@@ -129,7 +129,7 @@ file: app.prod.ini.ctmpl
 {% endhighlight %}
 
 
-2. you install consul-template on each of those instances where the services A, B and C are running. 
+o. you install consul-template on each of those instances where the services A, B and C are running. 
 
 Note that this is a one-time investment and things will be even easier if you are using some automation tool like ansible or cloudformation (or chef, puppet). If you aren't using any of these and still setting up every new server by hand - you should try one of these - my current favorite is Ansible. 
 
@@ -141,7 +141,7 @@ $ /usr/local/bin/consul-template -consul "<__ONE_OF_CONSUL_NODES_IP>:8500" -temp
 
 Your apps will be responsible for upstart scripts in this case and will be installed on deployment.
 
-3. Now, when your redis instance cacheA goes down as we assumed in our hypothetical scenario above and you have to replace it with 192.168.1.4:6379 you simply need to go to consul web UI and update the key `service/redis/cacheA` to `192.168.1.4:6379` and consul-template which is running as a daemon will update the configuration instantly. Consul-template takes more arguments and you can write better command line by using config instead of `-consul` and `-template` as mentioned above. In the config format you can specify how to reload your app after config update happens. You can read more about it on the [consul-template readme](https://github.com/hashicorp/consul-template). Btw, you're done! 
+o. Now, when your redis instance cacheA goes down as we assumed in our hypothetical scenario above and you have to replace it with 192.168.1.4:6379 you simply need to go to consul web UI and update the key `service/redis/cacheA` to `192.168.1.4:6379` and consul-template which is running as a daemon will update the configuration instantly. Consul-template takes more arguments and you can write better command line by using config instead of `-consul` and `-template` as mentioned above. In the config format you can specify how to reload your app after config update happens. You can read more about it on the [consul-template readme](https://github.com/hashicorp/consul-template). Btw, you're done! 
 
 ### Service Discovery 
 
@@ -230,7 +230,11 @@ server {
 {% endraw %}
 {% endhighlight %}
 
-Consul returns, by default, only healthy services. I have just touched the tip of iceberg with respect to the possibilities with consul - an introduction. If you aren't tied up to another configuration management solution do give it a try. 
+Consul returns, by default, only healthy services. You just saw how it can completely automate your configuration management and service discovery. Following is a sequence diagram of how the config changes take place: 
+
+![consul sequence diagram](/public/assets/img/consul-sd.png)
+
+I have just touched the tip of iceberg with respect to the possibilities with consul - an introduction. If you aren't tied up to another configuration management solution do give it a try. 
 
 Happy consul! 
 
