@@ -92,11 +92,12 @@ As part of consul cluster setup you will also setup consul Web UI which is the i
 
 Now, that you have the cluster ready and populated with configuration data (key values) that you would want to refer to from apps - how really do you use these. Here comes [consul-template](https://github.com/hashicorp/consul-template) - another native binary produced from the `go` code. From it's read me:
 
-```
-This project provides a convenient way to populate values from Consul into the file system using the consul-template daemon.
+> This project provides a convenient way to populate values from Consul into the file system using the consul-template daemon.
+> The daemon consul-template queries a Consul instance and updates any number of specified templates on the file system. 
 
-The daemon consul-template queries a Consul instance and updates any number of specified templates on the file system. As an added bonus, consul-template can optionally run arbitrary commands when the update process completes.
-```
+and .. 
+
+> As an added bonus, consul-template can optionally run arbitrary commands when the update process completes.
 
 ### Configuration Management 
 
