@@ -69,9 +69,7 @@ upstream backend {
 ...
 {% endhighlight %}
 
-<center>
 ![Meme - well, what do we have here](/public/assets/img/well.jpg)
-</center>
 
 ### consul.. ! 
 
@@ -87,8 +85,8 @@ You can play with consul by following [this quickstart guide](https://www.consul
 
 As part of consul cluster setup you will also setup consul Web UI which is the interface to list all services registered with consul, how many nodes under each of the services are running successful ('passing' or 'failing'), all key values (complete CRUD for these and hence you can create, modify keys from the UI itself). Following are the screenshots for web UI (services and key values):
 
-![consul web UI - services](/public/assets/img/services-1.jpg)
-![consul web UI - key values](/public/assets/img/keyvalue.jpg)
+![consul web UI - services](/public/assets/img/services-1.png)
+![consul web UI - key values](/public/assets/img/keyvalue.png)
 
 ### Consul-template
 
