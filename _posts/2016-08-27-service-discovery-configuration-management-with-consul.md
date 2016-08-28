@@ -5,7 +5,7 @@ author: Manoj Awasthi
 categories: tech
 ---
 
-If you have a reasonably growing setup of services then you would already know what kind of hell configuration management becomes. Let me give an example. Suppose there are three services A, B and C which depend on two redis instances 192.168.1.1:6379, 192.168.1.2:6379 and a postgres instance 192.168.1.3:5432 then your configuration for the three services would look something like this: 
+If you have a reasonably growing setup of services then you would already know what kind of hell configuration management becomes. Let me give an example. Suppose there are three services A, B and C which depend on two redis instances `192.168.1.1:6379`, `192.168.1.2:6379` and a postgres instance `192.168.1.3:5432` then your configuration for the three services would look something like this: 
 
 {% highlight bash %}
 [Redis]
@@ -16,7 +16,7 @@ If you have a reasonably growing setup of services then you would already know w
 ... 
 {% endhighlight %}
 
-Now, add to this the fact that services could them be concurrent and running on multiple servers behind some load balancer i.e. A is not one single physical server (or VM) but multiple i.e. A1, A2, A3 and similarly B is say B1, B2 and C is say just C1. 
+Now, add to this the fact that services could be concurrent and running on multiple servers behind some load balancer i.e. A is not one single physical server (or VM) but multiple i.e. A1, A2, A3 and similarly B is say B1, B2 and C is say just C1. 
 
 ![Example setup](/public/assets/img/ex-setup.png)
 
@@ -69,7 +69,7 @@ upstream backend {
 ...
 {% endhighlight %}
 
-![Meme - well, what do we have here](/public/assets/img/well.jpg)
+Do we have a solution? Actually, there are many solutions for this problem. One of them is topic of this post.
 
 ### consul.. ! 
 
@@ -141,7 +141,7 @@ $ /usr/local/bin/consul-template -consul "<__ONE_OF_CONSUL_NODES_IP>:8500" -temp
 
 Your apps will be responsible for upstart scripts in this case and will be installed on deployment.
 
-o. Now, when your redis instance cacheA goes down as we assumed in our hypothetical scenario above and you have to replace it with 192.168.1.4:6379 you simply need to go to consul web UI and update the key `service/redis/cacheA` to `192.168.1.4:6379` and consul-template which is running as a daemon will update the configuration instantly. Consul-template takes more arguments and you can write better command line by using config instead of `-consul` and `-template` as mentioned above. In the config format you can specify how to reload your app after config update happens. You can read more about it on the [consul-template readme](https://github.com/hashicorp/consul-template). Btw, you're done! 
+o. Now, when your redis instance cacheA goes down as we assumed in our hypothetical scenario above and you have to replace it with `192.168.1.4:6379` you simply need to go to consul web UI and update the key `service/redis/cacheA` to `192.168.1.4:6379` and consul-template which is running as a daemon will update the configuration instantly. Consul-template takes more arguments and you can write better command line by using config instead of `-consul` and `-template` as mentioned above. In the config format you can specify how to reload your app after config update happens. You can read more about it on the [consul-template readme](https://github.com/hashicorp/consul-template). Btw, you're done! 
 
 ### Service Discovery 
 
