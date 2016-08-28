@@ -18,7 +18,7 @@ author:
   name:           'Manoj Awasthi'
   url:            https://twitter.com/awmanoj
 
-#paginate:         5
+paginate:         5
 
 google_analytics: UA-82105506-1
 # Custom vars
