@@ -142,7 +142,7 @@ $ /usr/local/bin/consul-template -consul "<__ONE_OF_CONSUL_NODES_IP>:8500" -temp
 
 Your apps will be responsible for upstart scripts in this case and will be installed on deployment.
 
-o. Now, when your redis instance cacheA goes down as we assumed in our hypothetical scenario above and you have to replace it with `192.168.1.4:6379` you simply need to go to consul web UI and update the key `service/redis/cacheA` to `192.168.1.4:6379` and consul-template which is running as a daemon will update the configuration instantly. Consul-template takes more arguments and you can write better command line by using config instead of `-consul` and `-template` as mentioned above. In the config format you can specify how to reload your app after config update happens. You can read more about it on the [consul-template readme](https://github.com/hashicorp/consul-template). Btw, you're done! 
+o. Now, when your redis instance cacheA goes down as we assumed in our hypothetical scenario above and you have to replace it with `192.168.1.4:6379` you simply need to go to consul web UI and update the key `service/redis/cacheA` to `192.168.1.4:6379` and consul-template which is running as a daemon will update the configuration instantly. Consul-template takes more arguments and you can write better command line by using config instead of `-consul` and `-template` as mentioned above. In the config format you can specify how to reload your app after config update happens. You can read more about it on the [consul-template readme](https://github.com/hashicorp/consul-template). Btw, you just saw how automated configuration management now is & you're done! 
 
 ### Service Discovery 
 
