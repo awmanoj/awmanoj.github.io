@@ -237,7 +237,6 @@ Consul returns, by default, only healthy services. You just saw how it can compl
 
 I have just touched the tip of iceberg with respect to the possibilities with consul - an introduction. If you aren't tied up to another configuration management solution do give it a try. 
 
-Happy consul! 
 
 
 
