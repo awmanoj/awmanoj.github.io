@@ -15,7 +15,7 @@ $ consul watch -http-addr consul.service.local:8500 -type keyprefix -prefix glob
 
 But there is a problem - everytime there is a change in a key value e.g. key `global/redis/cacheA` is changed from `192.168.1.1` to `192.168.1.2` then consul watch handler gets invoked with latest values only i.e. `192.168.1.2`. 
 
-We felt that there is a need to know the change in full context i.e. `old_value` and `new_value`. After some searching and not finding a solution we devised a method (rather novel I'd say but I am blinded by bias) by using `git` - [the most awesome change control system](https://www.youtube.com/watch?v=4XpnKHJAok8) - in local mode (no `remote` set). 
+We felt that there is a need to know the change in full context i.e. `old_value` and `new_value`. After some searching and not finding a solution we devised a method (rather novel I'd say but I am blinded by bias) by using `git` - the most awesome change control system - in local mode (no `remote` set). 
 
 Idea is simple. 
 
@@ -43,7 +43,7 @@ $ git commit -m "Update kvs.txt"
 ...
 {% endhighlight %}
 
-Once the above setup is done - run the `consul watch` in daemon mode: 
+Once the above setup is done - run the `consul watch` in daemon mode (via upstart preferably): 
 
 {% highlight bash %}
 $ consul watch -http-addr consul.service.local:8500 -type keyprefix -prefix global /usr/local/bin/watch_handler.sh
@@ -51,7 +51,7 @@ $ consul watch -http-addr consul.service.local:8500 -type keyprefix -prefix glob
 
 This ensures that when there is a change in any of the key values under the specified prefixed keys then it will trigger the execution of `watch_handler.sh`. This script does following on each such trigger:
 
-* Change to a directory `/var/consul/data/`. 
+* Change directory to `/var/consul/data/`. 
 * Run following command to get the latest (post change) key values: 
 
 {% highlight bash %}
@@ -62,7 +62,7 @@ $ consul watch -http-addr consul.service.local:8500 -type keyprefix -prefix glob
 
 > If empty (no change) then don't do anything else trigger your alert mechanism with the output of `git diff` command (e.g. mail, [slack](https://api.slack.com/incoming-webhooks), [mattermost](https://docs.mattermost.com/developer/webhooks-incoming.html) etc.)
 
-* Now that the alert is already sent - do following to commit the new change locally. 
+* Now that the alert is already sent - commit the new change locally. 
 
 {% highlight bash %}
 $ git add kvs.txt 
