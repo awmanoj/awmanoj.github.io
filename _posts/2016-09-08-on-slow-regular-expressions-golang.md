@@ -15,4 +15,4 @@ More importantly,
 
 Take away 1: Fair enough!
 
-Take away 2: Prefer using `strings` functions if your job gets done with that. Didn't authors already told us Go is an opinionated language! 
+Take away 2: Prefer using `strings` functions if your job gets done with that. Didn't authors already tell us Go is an opinionated language! 
