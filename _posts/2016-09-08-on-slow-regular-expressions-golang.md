@@ -13,6 +13,6 @@ More importantly,
 
 >Second, Go is using a different algorithm for regexp matching than the C implementations in those other languages. The algorithm Go uses guarantees to complete in time that is linear in the length of the input. The algorithm that Ruby/Python/etc are using can take time exponential in the length of the input, although on trivial cases it typically runs quite fast. In order to guarantee the linear time bound, Go's algorithm's best case speed a little slower than the optimistic Ruby/Python/etc algorithm. On the other hand, there are inputs for which Go will return quickly and Ruby/Python/etc need more time than is left before the heat death of the universe. It's a decent tradeoff.
 
-Fair enough!
+Take away 1: Fair enough!
 
-Take away: Prefer using `strings` functions if your job gets done with that. Didn't authors already told us Go is an opinionated language! 
+Take away 2: Prefer using `strings` functions if your job gets done with that. Didn't authors already told us Go is an opinionated language! 
