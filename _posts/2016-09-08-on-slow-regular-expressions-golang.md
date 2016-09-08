@@ -5,7 +5,7 @@ author: Manoj Awasthi
 categories: tech
 ---
 
-Few months back, a colleague mentioned over lunch [how slow golang regular expressions are](http://benchmarksgame.alioth.debian.org/u64q/compare.php?lang=go&lang2=python3) - this was not only compared to awesome performance of Perl regex or PCRE but also other languages. Recently while looking for threads discussing Go vs Python wrt regex I got hold of following comments (by [Russ Cox](https://swtch.com/~rsc/)): 
+Few months back, a colleague mentioned over lunch [how slow golang regular expressions are](http://benchmarksgame.alioth.debian.org/u64q/compare.php?lang=go&lang2=python3) - this was not only compared to awesome performance of Perl regex or PCRE but also other languages. Recently, while looking for threads discussing Go vs Python wrt regex I got hold of following comments (by [Russ Cox](https://swtch.com/~rsc/)): 
 
 >First of all, Ruby and Python are using C implementations of the regexp search, so Go is being beat by C, not by Ruby.
 
