@@ -5,7 +5,7 @@ author: Manoj Awasthi
 categories: tech
 ---
 
-In past I discussed about using [consul as a service discovery and configuration management solution]((https://awmanoj.github.io/tech/2016/08/27/service-discovery-configuration-management-with-consul/) and how to [configure for alerts on key value changes](https://awmanoj.github.io/tech/2016/09/03/using-consul-watch-and-git/). 
+In past I discussed about using [consul as a service discovery and configuration management solution](https://awmanoj.github.io/tech/2016/08/27/service-discovery-configuration-management-with-consul/) and how to [configure for alerts on key value changes](https://awmanoj.github.io/tech/2016/09/03/using-consul-watch-and-git/). 
 
 [Opsgenie](https://www.opsgenie.com/) is a must-have tool for [SRE team](https://landing.google.com/sre/interview/ben-treynor.html) of any company beyond a certain scale. It enables alerts on some events (services down for example) via email, SMS, mobile push and even phone calls (so this is the enabler for dreaded pager service).
 
