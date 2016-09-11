@@ -53,7 +53,8 @@ done
 
 {% highlight bash %}
 {% raw %}
-{{ range services }}{{ range service .Name "any" }}{{.Name}} {{.Address}} {{.Port}} {{.Status}}
+{{ range services }}{{ range service .Name "any" }}
+{{.Name}} {{.Address}} {{.Port}} {{.Status}}
 {{end}}{{ end }}
 {% endraw %}
 {% endhighlight %}
