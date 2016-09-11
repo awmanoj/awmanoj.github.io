@@ -20,41 +20,42 @@ After installing it and trying to figure out - to be frank - I couldn't comprehe
 
 OLD_SERVICES_CRITICAL=
 while [ 1 ]; do 
-	rm -f /tmp/consul/services.txt
-	consul-template -consul <___CONSUL_SERVICE_IP_HERE____>:8500 -template="/tmp/consul/services.alert.ctmpl:/tmp/consul/services.txt" -once
-	SERVICES_CRITICAL=`cat /tmp/consul/services.txt | grep -i critical | awk '{print "["$1" "$2"]"}'`
-	
-	if [ ! -z "$OLD_SERVICES_CRITICAL" ] && [ -z "$SERVICES_CRITICAL" ]; 
-		OLD_SERVICES_CRITICAL=""
-	fi
+  rm -f /tmp/consul/services.txt
+  consul-template -consul <___CONSUL_SERVICE_IP_HERE____>:8500 -template="/tmp/consul/services.alert.ctmpl:/tmp/consul/services.txt" -once
+  SERVICES_CRITICAL=`cat /tmp/consul/services.txt | grep -i critical | awk '{print "["$1" "$2"]"}'`
 
-	if [ ! -z "$SERVICES_CRITICAL" ] && [ $SERVICES_CRITICAL -ne $OLD_SERVICES_CRITICAL ]; then
-		curl -XPOST 'https://api.opsgenie.com/v1/json/alert' -d"
-		{
-   		\"apiKey\": \"______YOUR_OPSGENIE_KEY_HERE______\", 
-   		\"message\": \"Services down: $SERVICES_CRITICAL.\", 
-  	 	\"teams\": [\"______YOUR_SRE_TEAM_NAME_HERE_____\"]
-		}"
+  if [ ! -z "$OLD_SERVICES_CRITICAL" ] && [ -z "$SERVICES_CRITICAL" ]; 
+    OLD_SERVICES_CRITICAL=""
+  fi
 
-		# Add an alert to Slack.
-		#... 
+  if [ ! -z "$SERVICES_CRITICAL" ] && [ $SERVICES_CRITICAL -ne $OLD_SERVICES_CRITICAL ]; then
+    curl -XPOST 'https://api.opsgenie.com/v1/json/alert' -d"{
+      \"apiKey\": \"______YOUR_OPSGENIE_KEY_HERE______\", 
+      \"message\": \"Services down: $SERVICES_CRITICAL.\",
+      \"teams\": [\"______YOUR_SRE_TEAM_NAME_HERE_____\"]
+    }"
+    
+    # Add an alert to Slack.
+    #... 
 
-		# Add an alert to Mattermost.
-		#... 
+    # Add an alert to Mattermost.
+    #... 
 
-		OLD_SERVICES_CRITICAL=$SERVICES_CRITICAL
-	fi
+    OLD_SERVICES_CRITICAL=$SERVICES_CRITICAL
+  fi
 
-	## every 10 seconds
-	sleep 10
+  ## every 10 seconds
+  sleep 10
 done
 {% endhighlight %}
 
 `service.alert.ctmpl` is simple - it lists down all service names, their IP, their port and current status (passing, warning, critical etc.): 
 
 {% highlight bash %}
+{% raw %}
 {{ range services }}{{ range service .Name "any" }}{{.Name}} {{.Address}} {{.Port}} {{.Status}}
 {{end}}{{ end }}
+{% endraw %}
 {% endhighlight %}
 
 It took less than 5 minutes to get this running. 
