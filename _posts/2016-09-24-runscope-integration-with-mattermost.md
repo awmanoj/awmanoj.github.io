@@ -5,7 +5,7 @@ author: Manoj Awasthi
 categories: tech
 ---
 
-[Runscope](https://www.runscope.com/) is an API monitoring and testing tool. It allows you to test your web service endpoints periodically for uptime & errors with a good support for alert and notifications. 
+[Runscope](https://www.runscope.com/) is an API monitoring and testing tool. It allows you to test your web service endpoints periodically (say every 5 mins) for uptime & errors with a good support for alert and notifications. 
 
 We are using Runscope at my workplace to monitor our web services. It has great [integration with Slack](https://www.runscope.com/docs/api-testing/slack) so any Runscope tests that results in error would post a notification on one of our Slack channels.
 
