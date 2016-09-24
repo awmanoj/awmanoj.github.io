@@ -15,4 +15,4 @@ Now the problem is that Runscope does not provide any ready-to-use integration w
 
 I have written some example code - [runscope-mattermost-hook](https://github.com/awmanoj/runscope-mattermost-hook) for the integration service which you can refer or use. If you have feedback please [tweet](https://twitter.com/awmanoj) to me.
 
-Ref: https://github.com/awmanoj/runscope-mattermost-hook
+Ref: [https://github.com/awmanoj/runscope-mattermost-hook](https://github.com/awmanoj/runscope-mattermost-hook)
