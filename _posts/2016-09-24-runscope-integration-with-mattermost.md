@@ -13,6 +13,6 @@ As I wrote earlier, we are [replacing Slack](https://awmanoj.github.io/tech/2016
 
 Now the problem is that Runscope does not provide any ready-to-use integration with Mattermost. So, we need to do more toil. Basically we can use [Webhook Notifications](https://www.runscope.com/docs/alerts/notifications#webhook). To do this, you run a web service on public IP (or behind ELB) and register it with RunScope for tests you are interested in. This web service will receive a callback from Runscope (and `HTTP POST`) in a certain format containing all data about the test that ran. Your web service can take appropriate action for the callback - e.g. in our case - if we detect there is an error we send a `HTTP POST` to Mattermost with data in same format as we were getting on Slack. 
 
-I have written some example code - [runscope-mattermost-hook](https://github.com/awmanoj/runscope-mattermost-hook) for the integration service which you can refer or use. If you have feedback please [tweet](https://twitter.com/awmanoj) to me.
+I have written some example code in `go` - [runscope-mattermost-hook](https://github.com/awmanoj/runscope-mattermost-hook) for the integration service which you may refer or use. If you have feedback please [tweet](https://twitter.com/awmanoj) to me.
 
 Ref: [https://github.com/awmanoj/runscope-mattermost-hook](https://github.com/awmanoj/runscope-mattermost-hook)
