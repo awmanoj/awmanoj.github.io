@@ -39,6 +39,22 @@
                 overflow: hidden;
             }
         </style>
+		<script type="text/javascript">
+			var iterations = "50000";
+			var delay = "10";
+			var query = "?iterations=" + iterations + "&delay=" + delay;
+			var endpoint = "http://ec2-54-234-118-226.compute-1.amazonaws.com/sierpinski";
+			var url0 = endpoint + query;
+
+			function redraw() {
+				iterations = document.getElementById("iterations").value;
+				delay = document.getElementById("delay").value;
+				query = "?iterations=" + iterations + "&delay=" + delay;
+				url0 = endpoint + query;
+				document.getElementById("main").href = url0;
+				document.getElementById("download").href = url0;
+			}
+		</script>
     </head>
     <body>
 
@@ -56,7 +72,7 @@
 
     <div class="container">
         <nav>
-            <img src="/public/assets/img/sierpinski.gif"/>
+            <img id="main" src="/public/assets/img/sierpinski.gif"/>
         </nav>
 
         <article>
@@ -67,7 +83,7 @@
                     </a>
                 </li>
                 <li>
-                    <a href="/public/assets/img/sierpinski.gif" download="sierpinski.gif">Download</a> the GIF.
+                    <a id="download" href="/public/assets/img/sierpinski.gif" download="sierpinski.gif">Download</a> the GIF.
                 </li>
 			</ul>
 
@@ -103,6 +119,10 @@
 			<br/>
 			<br/>
 			<br/>
+			Number of iterations (more iterations, more visible the structure): <input type="text" id="iterations"/>
+			Delay (value between 1 and 20, lower the value faster the speed): <input type="text" id="delay"/>
+			<br/>
+			<button type="button" onclick="redraw()">Update GIF</button>
 			<br/>
 			<br/>
 			<br/>
