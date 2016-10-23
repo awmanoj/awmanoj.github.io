@@ -47,6 +47,7 @@
 			var url0 = endpoint + query;
 
 			function redraw() {
+				document.getElementById("main").src = ""
 				iterations = document.getElementById("iterations").value;
 				delay = document.getElementById("delay").value;
 				query = "?iterations=" + iterations + "&delay=" + delay;
