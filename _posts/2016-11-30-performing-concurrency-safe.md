@@ -13,13 +13,13 @@ In this post, I discuss about a specific problem while concurrently writing to d
 
 It’s sometime good to understand the antithesis to understand something. The opposite of concurrent would be sequential. A sequential program is a program with a single thread of execution so the order of events (instructions) executed in the program are predictable and are as per the program logic. A concurrent program is a program with more than one threads of execution and so the order of events (instructions) executed in the program are not really predictable — order of events within one thread remains predictable but whether an event `x` in thread A will happen before or after an event `y` in thread B or they will be simultaneous is generally unknown. 
 
-So a good definition (quoting from “The Go Programming Language”):
+So a good "informal" definition (quoting from “[The Go Programming Language](http://www.amazon.in/Go-Programming-Language-Alan-Donovan/dp/9332569711/ref=sr_1_1?ie=UTF8&qid=1480680008&sr=8-1&keywords=the+go+programming+language)”):
 
 >  When we cannot confidently say that one event happens before the other then the events x and y are concurrent. 
 
 ### Concurrency-safe programs 
 
-A function is concurrency-safe if it continues to work correctly even when called concurrently (that is from two or more threads of execution without any additional synchronisation code). 
+A function is concurrency-safe if it continues to work correctly even when called concurrently (that is from two or more threads of execution without needing any additional synchronisation code). 
 
 The analogy can be extended to “programs” when programs are accessing a shared resource for writing e.g. databases. If two or more than two programs are executing concurrently (on one or more than one servers) and are accessing a shared resource for writing then too the definition holds true that programs are concurrency-safe if they keep performing their updates correctly. This is the topic of this post. 
 
@@ -149,19 +149,17 @@ package main
 
 import	(
 	"log"
-    "database/sql"
-    "github.com/jmoiron/sqlx"
-    _ "github.com/lib/pq"
+	"database/sql"
+	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq"
 )
 
 func main() {
 	for i := 0; i < 3; i++ {
-		go launchDoFn()
+		go launchDoFn() // async launch goroutines (similar to threads) 
 	}
-    
-    for {
-        time.Sleep(time.Second)
-    }
+
+	select {}
 }
 
 func launchDoFn() {
@@ -216,12 +214,14 @@ Note: your output may be different - since it is unpredictable but in all likeli
 
 Well, something like this: 
 
-time t0: Thread A reads N = 5, Thread B also reads N = 5 
-time t1: Thread A increments N = N + 1 = 6, Thread B increments N = N + 1 = 6 
-time t2: Thread A writes into DB N = 6
-time t3: Thread B writes into DB N = 6
+| Time | Thread A | Thread B | 
+| ---- | -------- | -------- | 
+| time t0 | reads N = 5 | reads N = 5 | 
+| time t1 | increments N = N + 1 = 6 | increments N = N + 1 = 6 |
+| time t2 | writes into DB N = 6 | | 
+| time t3 | | writes into DB N = 6 | 
 
-So instead of the final value = 7 we get the value = 6. This is happening multiple times and hence causing the mismatch between expected and actual results. 
+So instead of the final value = 7 we get the value = 6. This is happening multiple (unpredictable number of) times and hence causing the mismatch between expected and actual results. 
 
 Now, we will discuss how to fix this.
 
@@ -253,10 +253,10 @@ Also,
 
 This is permitted by the SQL standard: the four isolation levels only define which phenomena must not happen, they do not define which phenomena must happen. 
 
-### Take away! 
+### Quick take away! 
 
 * When we set the isolation level to serializable then behind the scene all concurrent updates to a database are performed in serial fashion i.e. one after the other. This clearly translates into bad performance.
-* When we set the isolation level to Repeatable read then behind the scene, database makes sure that of all transactions which are currently executing on a record read in "past" and trying to update the record (pay attention here: say A, B are executing, both read record #3 in table (i.e. did a 'select'), then try writing into database updated values) - only one of them is guaranteed to succeed and others will fail with "could not serialize access due to concurrent update" error. This is better performant than serializable, fixes the problem of correctness but means that you have to repeat the transactions which fail.
+* When we set the isolation level to Repeatable read then behind the scene, database makes sure that of all transactions which are currently executing on a record read in "past" and trying to update the record (pay attention here: say A, B are executing, both read record #3 in table (i.e. did a 'select'), then try writing into database updated values of record #3) - it is guaranteed that only one of them will succeed and others will fail with "could not serialize access due to concurrent update" error. This is better performant than serializable, fixes the problem of correctness but means that you have to repeat the transactions which fail.
 * Read committed is the default mode of postgres. It is safe when you are concurrently reading but not safe for concurrent updates.
 
 ### Fixing using repeatable read isolation level 
@@ -359,4 +359,5 @@ test=# SELECT * FROM test;
 
 Hence, we see the issue of correctness is resolved and with this change our program is concurrency safe wrt database update. 
 
+The post is longish - thanks for reading it through.
 
