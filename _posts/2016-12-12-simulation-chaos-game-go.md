@@ -11,7 +11,7 @@ Fractals are interesting. As happens with most things interesting in life I got 
 
 After reading through some of the articles on fractals online, I started reading a book on fractals recently. The first fractal it talks about is [sierpinski triangle](https://en.wikipedia.org/wiki/Sierpinski_triangle). So one sunday I spent implementing a simulation in go. 
 
-![Sierpinski Triangle](/public/assets/img/st.png)
+<img src="/public/assets/img/st.png" width="200" />
 
 You can check the simulation in the form of GIF at this page: [https://awmanoj.github.io/public/sierpinski.html](https://awmanoj.github.io/public/sierpinski.html)
 
