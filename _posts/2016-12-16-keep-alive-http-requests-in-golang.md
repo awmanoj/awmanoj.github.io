@@ -97,7 +97,7 @@ So we followed the suggestion:
  39     defer resp.Body.Close()
 ```
 
-While, as a I see the golang implementation, it does include a subtle comment in the code but I don’t understand yet why this idiosyncrasy exists. But would be something to be aware of and keep on the back of mind. 
+While, as a I see the golang implementation, it does include [a subtle comment in the code](https://github.com/golang/go/blob/master/src/net/http/client.go#L666) but I don’t understand yet why this idiosyncrasy exists. But would be something to be aware of and keep on the back of mind. 
 
 ```
  // Post issues a POST to the specified URL.
