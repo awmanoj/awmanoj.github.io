@@ -80,8 +80,8 @@ res.Body.Close()
 
 > To ensure http.Client connection reuse be sure to do two things:
 
-* 1. Read until Response is complete (i.e. ioutil.ReadAll(rep.Body))
-* 2. Call Body.Close()
+* Read until Response is complete (i.e. ioutil.ReadAll(rep.Body))
+* Call Body.Close()
 
 So we followed the suggestion: 
 
