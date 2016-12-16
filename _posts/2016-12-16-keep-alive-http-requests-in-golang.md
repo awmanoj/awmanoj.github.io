@@ -79,6 +79,7 @@ res.Body.Close()
 ```
 
 > To ensure http.Client connection reuse be sure to do two things:
+
 * 1. Read until Response is complete (i.e. ioutil.ReadAll(rep.Body))
 * 2. Call Body.Close()
 
@@ -98,13 +99,18 @@ So we followed the suggestion:
 
 While, as a I see the golang implementation, it does include a subtle comment in the code but I don’t understand yet why this idiosyncrasy exists. But would be something to be aware of and keep on the back of mind. 
 
-> 
-> // Post issues a POST to the specified URL.
-> //
-> // Caller should close resp.Body when done reading from it.
-> //
-> // If the provided body is an io.Closer, it is closed after the
-> // request.
-> //
+```
+ // Post issues a POST to the specified URL.
+ //
+ // Caller should close resp.Body when done reading from it.
+ //
+ // If the provided body is an io.Closer, it is closed after the
+ // request.
+ //
+```
 
+### Take Away
+
+* Use a global client as much as possible to avoid new connections. 
+* Even when you don't need the response back, read it fully before closing the response body - to take benefit of persistent connections (keep-alive).
 
