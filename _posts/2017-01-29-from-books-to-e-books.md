@@ -13,15 +13,15 @@ But after a small period of romanticism with kindle (purchasing few books, flaun
 
 Last year, I relocated to Jakarta. This meant I would not be able to get access to huge "unread" collection of books back home. I'd to resort to ebooks. By this time (early 2016), there were much better kindle apps with lot of features on Android and Mac. For this one year I read many books on kindle on Mac and I feel that I am already making that transition. Following are a couple of points which I like about kindle books as compared to physical counterparts:
 
-  T      | Digital book (e.g. on Kindle Reader) | Physical book 
-------- ---------------------------- ----------------
-Fulfillment | delivered instantly after purchase | can take anytime from 2-3 days to weeks sometimes
-Storage space | stored on device. can store thousands (and more) of books per the device memory | needs physical space
-Carry while travel or during relocation | only space and weight is that of device | each book takes space and adds to weight
-Highlights | highlight electronically, also know how many others have highlighted, see all highlights together etc. | highlight using marker or pencil, harder to go through highlights later
-Translate meaning | check meanings of certain words and phrase online immediately (just select the word)* | hmm, keep a dictionary alongside (and switch context)
-Distractions | possible to distract to internet, social media since you're on the device | focus is better in this case
-Feel | | smell of pages of a new book, cozy feeling of turning pages of a physical book
+|  T      | Digital book (e.g. on Kindle Reader) | Physical book |  
+---------- -------------------------------------- --------------
+| Fulfillment | delivered instantly after purchase | can take anytime from 2-3 days to weeks sometimes | 
+| Storage space | stored on device. can store thousands (and more) of books per the device memory | needs physical space | 
+| Carry while travel or during relocation | only space and weight is that of device | each book takes space and adds to weight | 
+| Highlights | highlight electronically, also know how many others have highlighted, see all highlights together etc. | highlight using marker or pencil, harder to go through highlights later | 
+| Translate meaning | check meanings of certain words and phrase online immediately (just select the word)* | hmm, keep a dictionary alongside (and switch context) | 
+| Distractions | possible to distract to internet, social media since you're on the device | focus is better in this case | 
+| Feel | | smell of pages of a new book, cozy feeling of turning pages of a physical book | 
 
 So other than the last two points, I think there are many benefits of switching to a digital book on a good reader.
 
