@@ -14,7 +14,7 @@ But after a small period of romanticism with kindle (purchasing few books, flaun
 Last year, I relocated to Jakarta. This meant I would not be able to get access to huge "unread" collection of books back home. I'd to resort to ebooks. By this time (early 2016), there were much better kindle apps with lot of features on Android and Mac. For this one year I read many books on kindle on Mac and I feel that I am already making that transition. Following are a couple of points which I like about kindle books as compared to physical counterparts:
 
 |  T      | Digital book (e.g. on Kindle Reader) | Physical book |  
----------- -------------------------------------- --------------
+| --- | --- | --- |
 | Fulfillment | delivered instantly after purchase | can take anytime from 2-3 days to weeks sometimes | 
 | Storage space | stored on device. can store thousands (and more) of books per the device memory | needs physical space | 
 | Carry while travel or during relocation | only space and weight is that of device | each book takes space and adds to weight | 
