@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en-us">
+
+  <head>
+  <link href="http://gmpg.org/xfn/11" rel="profile">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+
+  <!-- Enable responsiveness on mobile devices-->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+
+  <title>
+    
+      On slow regular expressions in golang &middot; Manoj Awasthi
+    
+  </title>
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="/public/css/poole.css">
+  <link rel="stylesheet" href="/public/css/syntax.css">
+  <link rel="stylesheet" href="/public/css/hyde.css">
+  <link rel="stylesheet" href="http://fonts.googleapis.com/css?family=PT+Sans:400,400italic,700|Abril+Fatface">
+
+  <!-- Icons -->
+  <link rel="apple-touch-icon-precomposed" sizes="144x144" href="/public/apple-touch-icon-144-precomposed.png">
+                                 <link rel="shortcut icon" href="/public/favicon.ico">
+
+  <!-- RSS -->
+  <link rel="alternate" type="application/rss+xml" title="RSS" href="/atom.xml">
+  
+</head>
+
+
+  <body>
+
+    <div class="sidebar">
+  <div class="container sidebar-sticky">
+    <div class="sidebar-about">
+      <h1>
+        <a href="/">
+          Manoj Awasthi
+        </a>
+      </h1>
+      <p class="lead">Autodidact.</p>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a class="sidebar-nav-item" href="/">Home</a>
+
+      
+
+      
+      
+        
+          
+        
+      
+        
+          
+            <a class="sidebar-nav-item" href="/about/">About</a>
+          
+        
+      
+        
+      
+        
+          
+        
+      
+        
+          
+        
+      
+
+      <a class="sidebar-nav-item" href="https://github.com/awmanoj">GitHub projects</a>
+	  <a href="http://feeds.feedburner.com/ManojAwasthi" title="Subscribe to my feed" rel="alternate" type="application/rss+xml"><img src="//feedburner.google.com/fb/images/pub/feed-icon32x32.png" alt="" style="border:0"/></a><a href="http://feeds.feedburner.com/ManojAwasthi" title="Subscribe to my feed" rel="alternate" type="application/rss+xml">Subscribe in a reader</a>
+
+<!-- 
+	  <a href="https://twitter.com/awmanoj" class="twitter-follow-button" data-show-count="false" data-lang="hi">@awmanoj को फ़ॉलो करें</a> <script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+'://platform.twitter.com/widgets.js';fjs.parentNode.insertBefore(js,fjs);}}(document, 'script', 'twitter-wjs');</script>
+
+-->
+	
+    </nav>
+
+
+    <p>&copy; 2016. All rights reserved.</p>
+  </div>
+</div>
+
+
+    <div class="content container">
+      <div class="post">
+  <h1 class="post-title">On slow regular expressions in golang</h1>
+  <span class="post-date">08 Sep 2016</span>
+  <p>Few months back, a colleague mentioned over lunch <a href="http://benchmarksgame.alioth.debian.org/u64q/compare.php?lang=go&amp;lang2=python3">how slow golang regular expressions are</a> - this was not only compared to awesome performance of Perl regex or PCRE but also other languages. Recently, while looking for threads discussing Go vs Python wrt regex I got hold of following comments (by <a href="https://swtch.com/~rsc/">Russ Cox</a>):</p>
+
+<blockquote>
+  <p>First of all, Ruby and Python are using C implementations of the regexp search, so Go is being beat by C, not by Ruby.</p>
+</blockquote>
+
+<p>More importantly,</p>
+
+<blockquote>
+  <p>Second, Go is using a different algorithm for regexp matching than the C implementations in those other languages. The algorithm Go uses guarantees to complete in time that is linear in the length of the input. The algorithm that Ruby/Python/etc are using can take time exponential in the length of the input, although on trivial cases it typically runs quite fast. In order to guarantee the linear time bound, Go’s algorithm’s best case speed a little slower than the optimistic Ruby/Python/etc algorithm. On the other hand, there are inputs for which Go will return quickly and Ruby/Python/etc need more time than is left before the heat death of the universe. It’s a decent tradeoff.</p>
+</blockquote>
+
+<p>Take away 1: Fair enough!</p>
+
+<p>Take away 2: Prefer using <code>strings</code> functions if your job gets done with that. Didn’t authors already tell us Go is an opinionated language!</p>
+
+</div>
+
+<div class="related">
+  <h2>Related Posts</h2>
+  <ul class="related-posts">
+    
+        <p>
+          <a href="/tech/2016/12/16/keep-alive-http-requests-in-golang/">
+            Keep-Alive in http requests in golang
+          </a>
+          <small>16 Dec 2016</small>
+        </p>
+    
+        <p>
+          <a href="/tech/2016/12/12/simulation-chaos-game-go/">
+            Simulation of chaos game in go
+          </a>
+          <small>12 Dec 2016</small>
+        </p>
+    
+        <p>
+          <a href="/tech/2016/11/30/performing-concurrency-safe/">
+            Performing concurrency-safe DB updates in postgres 9.4+ using 'repeatable read' isolation level
+          </a>
+          <small>30 Nov 2016</small>
+        </p>
+    
+  </ul>
+</div>
+
+    </div>
+
+  </body>
+</html>

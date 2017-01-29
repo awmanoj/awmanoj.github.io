@@ -1,0 +1,1194 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+ <title>Manoj Awasthi</title>
+ <link href="https://awmanoj.github.io/atom.xml" rel="self"/>
+ <link href="https://awmanoj.github.io/"/>
+ <updated>2016-12-24T21:19:54+07:00</updated>
+ <id>https://awmanoj.github.io</id>
+ <author>
+   <name>Manoj Awasthi</name>
+   <email></email>
+ </author>
+
+ 
+ <entry>
+   <title>Keep-Alive in http requests in golang</title>
+   <link href="https://awmanoj.github.io/tech/2016/12/16/keep-alive-http-requests-in-golang/"/>
+   <updated>2016-12-16T00:00:00+07:00</updated>
+   <id>https://awmanoj.github.io/tech/2016/12/16/keep-alive-http-requests-in-golang</id>
+   <content type="html">&lt;p&gt;The &lt;a href=&quot;https://en.wikipedia.org/wiki/Handshaking#TCP_three-way_handshake&quot;&gt;three-way handshake&lt;/a&gt; in a TCP connection setup is heavy wrt performance and re-using the already created connections is a considerable optimization. Keep alive is a method to allow the same tcp connection for HTTP conversation instead of opening a new one with each new request. Most servers and clients allow for configurations and options to utilise this optimisation.&lt;/p&gt;
+
+&lt;p&gt;I had a strange encounter with the way this is handled in go.&lt;/p&gt;
+
+&lt;p&gt;I’ve a go application - an &lt;a href=&quot;http://nsq.io/&quot;&gt;nsq&lt;/a&gt; (a distributed message queue) consumer - which reads some data off nsq and send that data over a HTTP POST to a remote server over SSL. This involves a &lt;a href=&quot;https://www.ssl.com/article/ssl-tls-handshake-overview/&quot;&gt;TLS handshake&lt;/a&gt; which is even more heavy than non-ssl handshake.&lt;/p&gt;
+
+&lt;p&gt;We found that nsq queue depth for the topics was high and increasing, additionally we kept seeing errors like in nsqd logs:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;[nsqd] 2016/12/16 17:48:34.563958 ERROR: [19.68.8.7:55239] - E_FIN_FAILED FIN 0b3caf88 failed ID not in flight - ID not in flight
+[nsqd] 2016/12/16 17:48:34.567675 ERROR: [19.68.8.7:55239] - E_FIN_FAILED FIN 0b3ca9f4 failed ID not in flight - ID not in flight
+[nsqd] 2016/12/16 17:48:34.571008 ERROR: [19.68.8.7:55239] - E_FIN_FAILED FIN 0b3c955c failed ID not in flight - ID not in flight
+[nsqd] 2016/12/16 17:48:34.573917 ERROR: [19.68.8.7:55239] - E_FIN_FAILED FIN 0b3c86f8 failed ID not in flight - ID not in flight
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Based on the &lt;a href=&quot;https://github.com/nsqio/nsq/issues/660&quot;&gt;limited&lt;/a&gt; &lt;a href=&quot;https://github.com/nsqio/nsq/issues/729&quot;&gt;number&lt;/a&gt; &lt;a href=&quot;https://github.com/nsqio/nsq/issues/762&quot;&gt;of documents&lt;/a&gt; we got over the internet it seemed like this was due to a slow consumer (hints like need for heartbeat from consumer pointed in this direction). Since consumer was very simple - just doing some http posts so it was the only suspect.&lt;/p&gt;
+
+&lt;p&gt;We did a &lt;code&gt;strace&lt;/code&gt; on the running process to see the &lt;code&gt;read,connect&lt;/code&gt; system calls. It indeed was doing some certificate interchange (read) for each connect or POST:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;[pid 18043] read(90, &quot;g\201\f\1\2\0020|\6\10+\6\1\5\5\7\1\1\4p0n0$\6\10+\6\1\5\5\0070\1\206\30http://ocsp.digicert.com0F\6\10+\6\1\5\5\0070\2\206:http://cacerts.digicert.com/DigiCertSHA2SecureServerCA.crt0\f\6\3U\35\23\1\1\377\4\0020\0000\r\6\t*\206H\206\367\r\1\1\v\5\0\3\202\1\1\0\222\327\361\374\211T\330\363\305~8Z\270\210\313&amp;lt;Z\336o\274?\366\34\252\206Q\332\0044\257'\3751\205\273sa\200\251\325\224\267\\*\221\1/Ws\246\351bl=\330q?\200\256f\21\257\331\246\242w\313\202\245\361\241a?\2\345&amp;lt;a\35\313n\276\220\217k\377C\335}\235\2000+%?… &quot;, 3166) = 1948
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;From the code, we noticed that:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;a http client was being created for each incoming message in the handler. this was overkill clearly.&lt;/li&gt;
+  &lt;li&gt;the http client created was using default transport. default http client does have a keep-alive setting.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Since keep-alive is already there so we thought #1 is the problem which is causing new connections to be created for every request which in turn leads to the TLS handshake (and eventually to slow consumer). We fixed this by creating a global client:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt; 14 var client *http.Client
+ 15 
+ 16 func init() {
+ 17     tr := &amp;amp;http.Transport{
+ 18         MaxIdleConnsPerHost: 1024,
+ 19         TLSHandshakeTimeout: 0 * time.Second,
+ 20     }
+ 21     client = &amp;amp;http.Client{Transport: tr}
+ 22 }
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;and using this to do the Post:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt; 31     resp, err := client.Post(&quot;https://api.some-web.com/v2/events&quot;, &quot;application/json&quot;, bytes.NewBuffer(eventJson))
+ 32     if err != nil {
+ 33         log.Println(&quot;err&quot;, err)
+ 34         return err
+ 35     }
+ 36  
+ 37     defer resp.Body.Close()
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;But we observed that problem persisted still (slowness as evident from errors in nsqd logs). We confirmed by doing &lt;code&gt;strace&lt;/code&gt; again:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;$ sudo strace -s 2000 -f -p 18120 -e 'read,connect' 
+[pid 18120] read(90, &quot;g\201\f\1\2\0020|\6\10+\6\1\5\5\7\1\1\4p0n0$\6\10+\6\1\5\5\0070\1\206\30http://ocsp.digicert.com0F\6\10+\6\1\5\5\0070\2\206:http://cacerts.digicert.com/DigiCertSHA2SecureServerCA.crt0\f\6\3U\35\23\1\1\377\4\0020\0000\r\6\t*\206H\206\367\r\1\1\v\5\0\3\202\1\1\0\222\327\361\374\211T\330\363\305~8Z\270\210\313&amp;lt;Z\336o\274?\366\34\252\206Q\332\0044\257'\3751\205\273sa\200\251\325\224\267\\*\221\1/Ws\246\351bl=\330q?\200\256f\21\257\331\246\242w\313\202\245\361\241a?\2\345&amp;lt;a\35\313n\276\220\217k\377C\335}\235\2000+%?… &quot;, 3166) = 1948
+
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;This appeared for each connection request. This meant that golang was somehow not honouring the keep-alive. This is when &lt;a href=&quot;http://stackoverflow.com/questions/17948827/reusing-http-connections-in-golang&quot;&gt;this thread on stack overflow&lt;/a&gt; helped us -&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;You should ensure that you read until the response is complete before calling Close().&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;pre&gt;&lt;code&gt;res, _ := client.Do(req)
+io.Copy(ioutil.Discard, res.Body)
+res.Body.Close()
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;To ensure http.Client connection reuse be sure to do two things:&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Read until Response is complete (i.e. ioutil.ReadAll(rep.Body))&lt;/li&gt;
+  &lt;li&gt;Call Body.Close()&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;So we followed the suggestion:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt; 31     resp, err := client.Post(&quot;https://api.some-web.com/v2/events&quot;, &quot;application/json&quot;, bytes.NewBuffer(eventJson))
+ 32     if err != nil {
+ 33         log.Println(&quot;err&quot;, err)
+ 34         return defaultErrStatus, err
+ 35     }
+ 36 
+ 37     io.Copy(ioutil.Discard, resp.Body)   // &amp;lt;= NOTE 
+ 38 
+ 39     defer resp.Body.Close()
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;While, as a I see the golang implementation, it does include &lt;a href=&quot;https://github.com/golang/go/blob/master/src/net/http/client.go#L666&quot;&gt;a subtle comment in the code&lt;/a&gt; but I don’t understand yet why this idiosyncrasy exists. But would be something to be aware of and keep on the back of mind.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt; // Post issues a POST to the specified URL.
+ //
+ // Caller should close resp.Body when done reading from it.
+ //
+ // If the provided body is an io.Closer, it is closed after the
+ // request.
+ //
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h3 id=&quot;take-away&quot;&gt;Take Away&lt;/h3&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Use a global client as much as possible to avoid new connections.&lt;/li&gt;
+  &lt;li&gt;Even when you don’t need the response back, read it fully before closing the response body - to take benefit of persistent connections (keep-alive).&lt;/li&gt;
+&lt;/ul&gt;
+
+</content>
+ </entry>
+ 
+ <entry>
+   <title>Simulation of chaos game in go</title>
+   <link href="https://awmanoj.github.io/tech/2016/12/12/simulation-chaos-game-go/"/>
+   <updated>2016-12-12T00:00:00+07:00</updated>
+   <id>https://awmanoj.github.io/tech/2016/12/12/simulation-chaos-game-go</id>
+   <content type="html">&lt;p&gt;Fractals are interesting. As happens with most things interesting in life I got introduced to fractals serendipitously while researching on another mathematical construct ‘&lt;a href=&quot;https://en.wikipedia.org/wiki/Golden_ratio&quot;&gt;golden ratio&lt;/a&gt;’ which i needed to know about for implementation in an &lt;a href=&quot;https://helpx.adobe.com/photoshop-elements/using/cropping.html&quot;&gt;image editing feature I worked on&lt;/a&gt; as part of my day job few years back.&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://en.wikipedia.org/wiki/Fractal&quot;&gt;Fractals&lt;/a&gt; are self repeating patterns (either exact or approximately) and are found in nature aplenty (mostly the latter kind). One of the most intriguing ones are &lt;a href=&quot;https://books.google.co.id/books?id=0R2LkE3N7-oC&amp;amp;redir_esc=y&quot;&gt;Mandelbrot sets&lt;/a&gt; which have a mathematical connotation i.e. you can write a mathematical formula to describe mandelbrot sets - the fact that it involves complex numbers and the fact that this is found in nature is what makes them particularly interesting as fractals. This is when you start wondering if God is mathematician or if we discover mathematics rather than invent it. More on that later&lt;/p&gt;
+
+&lt;p&gt;After reading through some of the articles on fractals online, I started reading a book on fractals recently. The first fractal it talks about is &lt;a href=&quot;https://en.wikipedia.org/wiki/Sierpinski_triangle&quot;&gt;sierpinski triangle&lt;/a&gt;. So one sunday I spent implementing a simulation in go.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/assets/img/st.png&quot; width=&quot;200&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;You can check the simulation in the form of GIF at this page: &lt;a href=&quot;https://awmanoj.github.io/public/sierpinski.html&quot;&gt;https://awmanoj.github.io/public/sierpinski.html&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;The code for the service generating the GIF is available at: &lt;a href=&quot;https://github.com/awmanoj/chaos&quot;&gt;https://github.com/awmanoj/chaos&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;If you have questions you can &lt;a href=&quot;https://twitter.com/awmanoj&quot;&gt;reach out to me&lt;/a&gt;.&lt;/p&gt;
+</content>
+ </entry>
+ 
+ <entry>
+   <title>Performing concurrency-safe DB updates in postgres 9.4+ using 'repeatable read' isolation level</title>
+   <link href="https://awmanoj.github.io/tech/2016/11/30/performing-concurrency-safe/"/>
+   <updated>2016-11-30T00:00:00+07:00</updated>
+   <id>https://awmanoj.github.io/tech/2016/11/30/performing-concurrency-safe</id>
+   <content type="html">&lt;p&gt;Let’s accept it for the nth time again, writing concurrent programs correctly is hard.&lt;/p&gt;
+
+&lt;p&gt;In this post, I discuss about a specific problem while concurrently writing to databases that I encountered recently, how to fix it and I am using that encounter to discuss a general idea about concurrent updates in databases.&lt;/p&gt;
+
+&lt;h3 id=&quot;concurrent---whats-that&quot;&gt;Concurrent - What’s that?&lt;/h3&gt;
+
+&lt;p&gt;It’s sometime good to understand the antithesis to understand something. The opposite of concurrent would be sequential. A sequential program is a program with a single thread of execution so the order of events (instructions) executed in the program are predictable and are as per the program logic. A concurrent program is a program with more than one threads of execution and so the order of events (instructions) executed in the program are not really predictable — order of events within one thread remains predictable but whether an event &lt;code&gt;x&lt;/code&gt; in thread A will happen before or after an event &lt;code&gt;y&lt;/code&gt; in thread B or they will be simultaneous is generally unknown.&lt;/p&gt;
+
+&lt;p&gt;So a good “informal” definition (quoting from “&lt;a href=&quot;http://www.amazon.in/Go-Programming-Language-Alan-Donovan/dp/9332569711/ref=sr_1_1?ie=UTF8&amp;amp;qid=1480680008&amp;amp;sr=8-1&amp;amp;keywords=the+go+programming+language&quot;&gt;The Go Programming Language&lt;/a&gt;”):&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;When we cannot confidently say that one event happens before the other then the events x and y are concurrent.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;h3 id=&quot;concurrency-safe-programs&quot;&gt;Concurrency-safe programs&lt;/h3&gt;
+
+&lt;p&gt;A function is concurrency-safe if it continues to work correctly even when called concurrently (that is from two or more threads of execution without needing any additional synchronisation code).&lt;/p&gt;
+
+&lt;p&gt;The analogy can be extended to “programs” when programs are accessing a shared resource for writing e.g. databases. If two or more than two programs are executing concurrently (on one or more than one servers) and are accessing a shared resource for writing then too the definition holds true that programs are concurrency-safe if they keep performing their updates correctly. This is the topic of this post.&lt;/p&gt;
+
+&lt;h3 id=&quot;example-program&quot;&gt;Example program&lt;/h3&gt;
+
+&lt;p&gt;Let’s create a toy program for demonstration which does some updates to a local postgres instance. I will be using &lt;code&gt;golang&lt;/code&gt; for implementing this but idea is language agnostic.&lt;/p&gt;
+
+&lt;p&gt;We will use a test table in a test database (both table and database are aptly named ‘test’). Following is the schema of the table:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;test=# \d+ test
+                         Table &quot;public.test&quot;
+ Column |  Type   | Modifiers | Storage | Stats target | Description 
+--------+---------+-----------+---------+--------------+-------------
+ id     | integer |           | plain   |              | 
+ value  | integer |           | plain   |              | 
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;the example code:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;package main
+
+import (
+  &quot;database/sql&quot;
+  &quot;github.com/jmoiron/sqlx&quot;
+  _ &quot;github.com/lib/pq&quot;
+  “log&quot;
+)
+
+func main() {
+  for i := 0; i &amp;lt; 750; i++ {
+    err := dofn()
+	if err != nil {
+		log.Println(&quot;err&quot;, err)
+		continue
+	}
+  }
+}
+
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;In this program, we are simply calling the function &lt;code&gt;dofn()&lt;/code&gt;, 750 times. In each call, &lt;code&gt;dofn&lt;/code&gt; opens a connection to database ‘test’, reads a value from the table ‘test’ and then either writes (&lt;code&gt;INSERT&lt;/code&gt;) the value 1 into table if it does not exist or increments the value (&lt;code&gt;UPDATE&lt;/code&gt;) in the table.&lt;/p&gt;
+
+&lt;p&gt;Following is the body for &lt;code&gt;dofn&lt;/code&gt; implementation:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;func dofn() error {
+	db, err := sqlx.Open(&quot;postgres&quot;, &quot;host=127.0.0.1 port=5432 user=postgres password=postgres dbname=test sslmode=disable&quot;)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer tx.Rollback()
+
+	var isExists bool = true
+	var id int
+	var value int
+	err = tx.QueryRow(&quot;SELECT * FROM test WHERE id = 1;&quot;).Scan(&amp;amp;id, &amp;amp;value)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			isExists = false
+		} else {
+			return err
+		}
+	}
+
+	if !isExists {
+		_, err := tx.Exec(&quot;INSERT INTO test VALUES(1, 1)&quot;)
+		if err != nil {
+			return err
+		}
+	} else {
+		value = value + 1
+		_, err := tx.Exec(&quot;UPDATE test SET value = $1 WHERE id = 1&quot;, value)
+		if err != nil {
+			return err
+		}
+	}
+
+	tx.Commit()
+	return nil
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Lets open the &lt;code&gt;psql&lt;/code&gt; console and delete all rows in the table prior to running this example.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;test=# DELETE FROM test; 
+DELETE 0
+test=# SELECT * FROM test; 
+ id | value 
+----+-------
+(0 rows)
+
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Now, we compile and run this example, as expected we will get the value updated to 750. This was the sequential run.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;parallels@ubuntu:~/gocode/src/bb/seq$ ./seq 
+parallels@ubuntu:~/gocode/src/bb/seq$ sudo -u postgres psql 
+psql (9.4.10)
+Type &quot;help&quot; for help.
+
+postgres=# \c test
+You are now connected to database &quot;test&quot; as user &quot;postgres&quot;.
+test=# SELECT * FROM test; 
+ id | value 
+----+-------
+  1 |   750
+(1 row)
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h3 id=&quot;let-make-it-a-bit-concurrent&quot;&gt;Let make it a bit concurrent..&lt;/h3&gt;
+
+&lt;p&gt;Now, let’s try to modify the program to do execution with the same &lt;code&gt;dofn&lt;/code&gt; but now executing the updates concurrently:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;package main
+
+import	(
+	&quot;log&quot;
+	&quot;database/sql&quot;
+	&quot;github.com/jmoiron/sqlx&quot;
+	_ &quot;github.com/lib/pq&quot;
+)
+
+func main() {
+	for i := 0; i &amp;lt; 3; i++ {
+		go launchDoFn() // async launch goroutines (similar to threads) 
+	}
+
+	select {}
+}
+
+func launchDoFn() {
+	for i := 0; i &amp;lt; 250; i++ {
+		err := dofn()
+		if err != nil {
+			log.Println(&quot;err&quot;, err)
+			continue
+		}
+	}	
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;As you see we launch three goroutines - each of which start sequential updates of 250 increments (including one insert). There are basically three concurrent threads you can assume which are updating DB. So let’s compile and run and see the result.&lt;/p&gt;
+
+&lt;p&gt;First, we will again clear the table so that it is empty again:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;postgres=# \c test
+You are now connected to database &quot;test&quot; as user &quot;postgres&quot;.
+test=# DELETE FROM test; 
+DELETE 1
+test=# SELECT * FROM test; 
+ id | value 
+----+-------
+(0 rows)
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Now run it and check the result:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;parallels@ubuntu:~/gocode/src/bb/conc$ ./conc 
+2016/12/01 19:06:20 err INSERT pq: duplicate key value violates unique constraint &quot;test_pkey&quot; pq: duplicate key value violates unique constraint &quot;test_pkey&quot;
+2016/12/01 19:06:20 err pq: duplicate key value violates unique constraint &quot;test_pkey&quot;
+parallels@ubuntu:~/gocode/src/bb/conc$ sudo -u postgres psql 
+psql (9.4.10)
+Type &quot;help&quot; for help.
+
+postgres=# \c test
+You are now connected to database &quot;test&quot; as user &quot;postgres&quot;.
+test=# SELECT * FROM test; 
+ id | value 
+----+-------
+  1 |   464
+(1 row)
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Note: your output may be different - since it is unpredictable but in all likelihood it would be incorrect i.e. not equal to 750.&lt;/p&gt;
+
+&lt;h3 id=&quot;so-what-happened&quot;&gt;So what happened?&lt;/h3&gt;
+
+&lt;p&gt;Well, something like this:&lt;/p&gt;
+
+&lt;table&gt;
+  &lt;thead&gt;
+    &lt;tr&gt;
+      &lt;th&gt;Time&lt;/th&gt;
+      &lt;th&gt;Thread A&lt;/th&gt;
+      &lt;th&gt;Thread B&lt;/th&gt;
+    &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+    &lt;tr&gt;
+      &lt;td&gt;time t0&lt;/td&gt;
+      &lt;td&gt;reads N = 5&lt;/td&gt;
+      &lt;td&gt;reads N = 5&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;time t1&lt;/td&gt;
+      &lt;td&gt;increments N = N + 1 = 6&lt;/td&gt;
+      &lt;td&gt;increments N = N + 1 = 6&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;time t2&lt;/td&gt;
+      &lt;td&gt;writes into DB N = 6&lt;/td&gt;
+      &lt;td&gt; &lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;time t3&lt;/td&gt;
+      &lt;td&gt; &lt;/td&gt;
+      &lt;td&gt;writes into DB N = 6&lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+
+&lt;p&gt;So instead of the final value = 7 we get the value = 6. This is happening multiple (unpredictable number of) times and hence causing the mismatch between expected and actual results.&lt;/p&gt;
+
+&lt;p&gt;Now, we will discuss how to fix this.&lt;/p&gt;
+
+&lt;h3 id=&quot;a-primer-on-isolation-levels&quot;&gt;A primer on isolation levels&lt;/h3&gt;
+
+&lt;p&gt;Since this is a common problem, SQL standard defines a way to solve this. Basically there are four levels of transaction isolation that are defined. As mentioned on &lt;a href=&quot;https://www.postgresql.org/docs/9.1/static/transaction-iso.html&quot;&gt;postgres documentation page&lt;/a&gt;:&lt;/p&gt;
+
+&lt;p&gt;The most strict (isolation level) is Serializable, which is defined by the standard in a paragraph which says that any concurrent execution of a set of Serializable transactions is guaranteed to produce the same effect as running them one at a time in some order. The other three levels are defined in terms of phenomena, resulting from interaction between concurrent transactions, which must not occur at each level.&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;
+    &lt;p&gt;dirty read: A transaction reads data written by a concurrent uncommitted transaction.&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;nonrepeatable read: A transaction re-reads data it has previously read and finds that data has been modified by another transaction (that committed since the initial read).&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;phantom read: A transaction re-executes a query returning a set of rows that satisfy a search condition and finds that the set of rows satisfying the condition has changed due to another recently-committed transaction.&lt;/p&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;table&gt;
+  &lt;thead&gt;
+    &lt;tr&gt;
+      &lt;th&gt;Isolation Level&lt;/th&gt;
+      &lt;th&gt;Dirty Read&lt;/th&gt;
+      &lt;th style=&quot;text-align: center&quot;&gt;Non repeatable Read&lt;/th&gt;
+      &lt;th style=&quot;text-align: right&quot;&gt;Phantom Read&lt;/th&gt;
+    &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Read Uncommitted&lt;/td&gt;
+      &lt;td&gt;Possible&lt;/td&gt;
+      &lt;td style=&quot;text-align: center&quot;&gt;Possible&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;Possible&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Read committed&lt;/td&gt;
+      &lt;td&gt;Not possible&lt;/td&gt;
+      &lt;td style=&quot;text-align: center&quot;&gt;Possible&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;Possible&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Repeatable Read&lt;/td&gt;
+      &lt;td&gt;Not Possible&lt;/td&gt;
+      &lt;td style=&quot;text-align: center&quot;&gt;Not Possible&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;Possible&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Serialisable&lt;/td&gt;
+      &lt;td&gt;Not Possible&lt;/td&gt;
+      &lt;td style=&quot;text-align: center&quot;&gt;Not Possible&lt;/td&gt;
+      &lt;td style=&quot;text-align: right&quot;&gt;Not Possible&lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+
+&lt;p&gt;In PostgreSQL, you can request any of the four standard transaction isolation levels. But internally, there are only three distinct isolation levels, which correspond to the levels Read Committed, Repeatable Read, and Serializable.&lt;/p&gt;
+
+&lt;p&gt;Also,&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;.. phantom reads are not possible in the PostgreSQL implementation of Repeatable Read, so the actual isolation level might be stricter than what you select.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;This is permitted by the SQL standard: the four isolation levels only define which phenomena must not happen, they do not define which phenomena must happen.&lt;/p&gt;
+
+&lt;h3 id=&quot;quick-take-away&quot;&gt;Quick take away!&lt;/h3&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;When we set the isolation level to serializable then behind the scene all concurrent updates to a database are performed in serial fashion i.e. one after the other. This clearly translates into bad performance.&lt;/li&gt;
+  &lt;li&gt;When we set the isolation level to Repeatable read then behind the scene, database makes sure that of all transactions which are currently executing on a record read in “past” and trying to update the record (pay attention here: say A, B are executing, both read record #3 in table (i.e. did a ‘select’), then try writing into database updated values of record #3) - it is guaranteed that only one of them will succeed and others will fail with “could not serialize access due to concurrent update” error. This is better performant than serializable, fixes the problem of correctness but means that you have to repeat the transactions which fail.&lt;/li&gt;
+  &lt;li&gt;Read committed is the default mode of postgres. It is safe when you are concurrently reading but not safe for concurrent updates.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;fixing-using-repeatable-read-isolation-level&quot;&gt;Fixing using repeatable read isolation level&lt;/h3&gt;
+
+&lt;p&gt;As mentioned above, in postgres repeatable read is as strict as serialisable and is more performant than serialisable. So, we will use this isolation level to fix the problem we faced while running concurrent updates.&lt;/p&gt;
+
+&lt;p&gt;We re-write our code for dofn():&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;func dofn() error {
+	db, err := sqlx.Open(&quot;postgres&quot;, &quot;host=127.0.0.1 port=5432 user=postgres password=postgres dbname=tokopedia-advertise-aws sslmode=disable&quot;)
+	if err != nil {
+		log.Println(&quot;err&quot;, err)
+		return err
+	}
+
+	defer db.Close()
+
+	var has_committed bool = false
+
+	for ok := true; ok; ok = !has_committed {
+		tx, err := db.Begin()
+   		if err != nil {
+       		log.Println(&quot;err&quot;, &quot;error begining transaction in postgres&quot;, err)
+       		return err 
+   		}
+
+		defer tx.Rollback()
+ 		_, err = tx.Exec(`set transaction isolation level repeatable read`)   // &amp;lt;=== SET ISOLATION LEVEL
+		if err != nil {
+   			return err
+		}
+
+		var isExists bool = true
+		var id int 
+		var value int
+		err = tx.QueryRow(&quot;select * from test1 where id = 1;&quot;).Scan(&amp;amp;id, &amp;amp;value)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				isExists = false
+			} else {
+				return err
+			}
+		}
+
+		if !isExists {
+			_, err := tx.Exec(&quot;INSERT INTO test VALUES(1, 1)&quot;)
+			if err != nil {
+           		 return err
+            }
+		} else {
+			value = value + 1
+			_, err := tx.Exec(&quot;UPDATE test set value = $1 where id = 1&quot;, value)
+			if err != nil {
+			if strings.Contains(err.Error(), &quot;could not serialize access due to concurrent update&quot;) {
+                continue
+            } else {
+            	return err
+            }
+		}
+	}
+
+	tx.Commit()
+	has_committed = true
+	}
+	return nil
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Let’s again empty the table, compile and run this and see results:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;test=# DELETE FROM test; 
+DELETE 1
+test=# SELECT * FROM test; 
+ id | value 
+----+-------
+(0 rows)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;parallels@ubuntu:~/gocode/src/bb/conc$ ./conc
+2016/12/01 19:28:06 err UPDATE pq: could not serialize access due to concurrent update pq: could not serialize access due to concurrent update
+2016/12/01 19:28:06 err UPDATE pq: could not serialize access due to concurrent update pq: could not serialize access due to concurrent update
+...
+...
+... -- many errors and retries --- 
+... 
+parallels@ubuntu:~/gocode/src/bb/conc$ sudo -u postgres psql 
+psql (9.4.10)
+Type &quot;help&quot; for help.
+
+postgres=# \c test
+You are now connected to database &quot;test&quot; as user &quot;postgres&quot;.
+test=# SELECT * FROM test; 
+ id | value 
+----+-------
+  1 |   750
+(1 row)
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Hence, we see the issue of correctness is resolved and with this change our program is concurrency safe wrt database update.&lt;/p&gt;
+
+&lt;p&gt;The post is longish - thanks for reading it through.&lt;/p&gt;
+
+</content>
+ </entry>
+ 
+ <entry>
+   <title>Runscope Integration with Mattermost</title>
+   <link href="https://awmanoj.github.io/tech/2016/09/24/runscope-integration-with-mattermost/"/>
+   <updated>2016-09-24T00:00:00+07:00</updated>
+   <id>https://awmanoj.github.io/tech/2016/09/24/runscope-integration-with-mattermost</id>
+   <content type="html">&lt;p&gt;&lt;a href=&quot;https://www.runscope.com/&quot;&gt;Runscope&lt;/a&gt; is an API monitoring and testing tool. It allows you to test your web service endpoints periodically (say every 5 mins) for uptime &amp;amp; errors with a good support for alert and notifications.&lt;/p&gt;
+
+&lt;p&gt;We are using Runscope at my workplace to monitor our web services. It has great &lt;a href=&quot;https://www.runscope.com/docs/api-testing/slack&quot;&gt;integration with Slack&lt;/a&gt; so any Runscope tests that results in error would post a notification on one of our Slack channels.&lt;/p&gt;
+
+&lt;p&gt;As I wrote earlier, we are &lt;a href=&quot;https://awmanoj.github.io/tech/2016/09/11/mattermost-opensource-selfhosted-slack-alternative/&quot;&gt;replacing Slack&lt;/a&gt; with an open source alternative - Mattermost.&lt;/p&gt;
+
+&lt;p&gt;Now the problem is that Runscope does not provide any ready-to-use integration with Mattermost. So, we need to do more toil. Basically we can use &lt;a href=&quot;https://www.runscope.com/docs/alerts/notifications#webhook&quot;&gt;Webhook Notifications&lt;/a&gt;. To do this, you run a web service on public IP (or behind ELB) and register it with RunScope for tests you are interested in. This web service will receive a callback from Runscope (and &lt;code&gt;HTTP POST&lt;/code&gt;) in a certain format containing all data about the test that ran. Your web service can take appropriate action for the callback - e.g. in our case - if we detect there is an error we send a &lt;code&gt;HTTP POST&lt;/code&gt; to Mattermost with data in same format as we were getting on Slack.&lt;/p&gt;
+
+&lt;p&gt;I have written some example code in &lt;code&gt;go&lt;/code&gt; - &lt;a href=&quot;https://github.com/awmanoj/runscope-mattermost-hook&quot;&gt;runscope-mattermost-hook&lt;/a&gt; for the integration service which you may refer or use. If you have feedback please &lt;a href=&quot;https://twitter.com/awmanoj&quot;&gt;tweet&lt;/a&gt; to me.&lt;/p&gt;
+
+&lt;p&gt;Ref: &lt;a href=&quot;https://github.com/awmanoj/runscope-mattermost-hook&quot;&gt;https://github.com/awmanoj/runscope-mattermost-hook&lt;/a&gt;&lt;/p&gt;
+</content>
+ </entry>
+ 
+ <entry>
+   <title>Mattermost - an opensource self-hosted Slack Alternative</title>
+   <link href="https://awmanoj.github.io/tech/2016/09/11/mattermost-opensource-selfhosted-slack-alternative/"/>
+   <updated>2016-09-11T00:00:00+07:00</updated>
+   <id>https://awmanoj.github.io/tech/2016/09/11/mattermost-opensource-selfhosted-slack-alternative</id>
+   <content type="html">&lt;p&gt;If you’re even remotely in tech you would be knowing about and with high chance using &lt;a href=&quot;https://slack.com/&quot;&gt;Slack&lt;/a&gt; - now ubiquitous messaging system which has replaced (almost) &lt;a href=&quot;https://en.wikipedia.org/wiki/Internet_Relay_Chat&quot;&gt;IRCs&lt;/a&gt;, &lt;a href=&quot;https://www.jabber.org/&quot;&gt;Jabber&lt;/a&gt; and other IM-like clients especially in corporates.&lt;/p&gt;
+
+&lt;p&gt;In my current company, we have been using Slack extensively - free version.&lt;/p&gt;
+
+&lt;p&gt;Free version of Slack has some limitations (ofcourse, that’s why it is free!):&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;There is a limit to searchable items (upto 10,000 of your team’s most recent messages)&lt;/li&gt;
+  &lt;li&gt;Upto 10 apps or service integrations&lt;/li&gt;
+  &lt;li&gt;5 GB of total file storage for the team.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Now, these are some serious limitations. Not all channels are made equal e.g. a channel for discussing &lt;code&gt;emergency response&lt;/code&gt; would have a higher bearing on losing messages (entire history of discussions!) because of some random chats elsewhere than a general channel for discussing company gossip. In our case, we were losing history of the messages as soon as we consume the limits (10K messages for example) and this used to come without warning.&lt;/p&gt;
+
+&lt;h3 id=&quot;need&quot;&gt;Need..&lt;/h3&gt;
+
+&lt;p&gt;Till the time team is small (say ~ 50-100) you don’t really have to worry about this as much but once the team grows beyond it then requirements arise to curb these limits. The solution is you pay for the service on Slack. This is exactly what we planned.&lt;/p&gt;
+
+&lt;p&gt;The pricing of Slack is &lt;code&gt;per user&lt;/code&gt; and minimum pricing that is available from Slack is &lt;code&gt;$6 per user per month&lt;/code&gt;.&lt;/p&gt;
+
+&lt;h3 id=&quot;saviour&quot;&gt;Saviour..&lt;/h3&gt;
+
+&lt;p&gt;That is when I got to know about &lt;a href=&quot;https://www.mattermost.org/&quot;&gt;Mattermost&lt;/a&gt; - an opensource self-hosted Slack alternative which is incredibly Slack-compatible. For more than a month, we have been using this alongwith the Slack to get a sense of “if we are not able to do a certain thing”. Till now, functionality wise Mattermost is working for us well.&lt;/p&gt;
+
+&lt;p&gt;Our setup of Mattermost is on AWS:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;&lt;code&gt;1&lt;/code&gt; &lt;code&gt;t2.medium&lt;/code&gt; EC2 instance (with &lt;code&gt;1&lt;/code&gt; &lt;code&gt;100G&lt;/code&gt; EBS Volume)&lt;/li&gt;
+  &lt;li&gt;&lt;code&gt;1&lt;/code&gt; RDS instance for postgres&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;It provides following benefits:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;No limit to number of messages (well, there is - but it is disk!) so no fear of losing out history.&lt;/li&gt;
+  &lt;li&gt;No limit to number of app of service integrations.&lt;/li&gt;
+  &lt;li&gt;No limit to the storage.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;(As pointed, limit is elastic - you can always go and upgrade your disk - also, disk is cheap)&lt;/p&gt;
+
+&lt;p&gt;It was simple to switch:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;It is easy to setup. There is an awesome guide to &lt;a href=&quot;https://www.mattermost.org/installation/&quot;&gt;setup mattermost&lt;/a&gt; on its site.&lt;/li&gt;
+  &lt;li&gt;It is not only slack compatible - the interface is also similar. So no “learning curve” friction.&lt;/li&gt;
+  &lt;li&gt;We were able to move all our existing slack integrations to Mattermost because of awesome compatibility. In most cases (except runscope - which I will write about sometime), you will just need to replace Slack webhook url with the Mattermost webhook url. It’s that simple.&lt;/li&gt;
+  &lt;li&gt;Mattermost comes with both an Android and an iOS App.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/assets/img/mm.png&quot; alt=&quot;Mattermost&quot; /&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;cost-comparison&quot;&gt;Cost comparison..&lt;/h3&gt;
+
+&lt;p&gt;The approximate per month cost (as per &lt;a href=&quot;http://www.ec2instances.info/&quot;&gt;this site&lt;/a&gt;) would be &lt;code&gt;$50&lt;/code&gt; (EC2) + &lt;code&gt;$10&lt;/code&gt; (100GB storage) + &lt;code&gt;$30&lt;/code&gt; (&lt;code&gt;2GB&lt;/code&gt; RAM RDS postgres instance) = &lt;code&gt;$90&lt;/code&gt;. This is approximate so let’s round it to &lt;code&gt;$100&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;This is not per user. :-)&lt;/p&gt;
+
+&lt;p&gt;The strength of my company is 500+ currently and it’s growing fast. Even if we assume 50% of them being active on slack (which is an underestimate) we can see quickly that cost of buying the &lt;code&gt;Standard&lt;/code&gt; Slack would be &lt;code&gt;$6 * 250 = $1500&lt;/code&gt; per month. As compared to this, the cost of setting up and running Mattermost for communication needs is meagre &lt;code&gt;$100&lt;/code&gt; per month.&lt;/p&gt;
+
+&lt;h3 id=&quot;downsides&quot;&gt;Downsides..&lt;/h3&gt;
+
+&lt;p&gt;One problem which we have faced and have heard complaints from teams is around Notifications in Mattermost. Notifications are not as smooth as Slack for Mobile and Desktop both. There is delay and alerting doesn’t work sometime in realtime. In worst cases, what I have observed is that with a delay of few minutes we do get notifications.&lt;/p&gt;
+
+&lt;p&gt;But with Mattermost setup, the load on Slack (free version) anyways comes down so you can choose to keep few alerting systems running on free version Slack and move more persistent kind of requirements (like chat, datadog integrations, consul integrations) on Mattermost.&lt;/p&gt;
+
+</content>
+ </entry>
+ 
+ <entry>
+   <title>Consul Integration with Opsgenie</title>
+   <link href="https://awmanoj.github.io/tech/2016/09/11/consul-integration-with-opsgenie/"/>
+   <updated>2016-09-11T00:00:00+07:00</updated>
+   <id>https://awmanoj.github.io/tech/2016/09/11/consul-integration-with-opsgenie</id>
+   <content type="html">&lt;p&gt;In past I discussed about using &lt;a href=&quot;https://awmanoj.github.io/tech/2016/08/27/service-discovery-configuration-management-with-consul/&quot;&gt;consul as a service discovery and configuration management solution&lt;/a&gt; and how to &lt;a href=&quot;https://awmanoj.github.io/tech/2016/09/03/using-consul-watch-and-git/&quot;&gt;configure for alerts on key value changes&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://www.opsgenie.com/&quot;&gt;Opsgenie&lt;/a&gt; is a must-have tool for &lt;a href=&quot;https://landing.google.com/sre/interview/ben-treynor.html&quot;&gt;SRE team&lt;/a&gt; of any company beyond a certain scale. It enables alerts on some events (services down for example) via email, SMS, mobile push and even phone calls (so this is the enabler for dreaded pager service).&lt;/p&gt;
+
+&lt;p&gt;At my company we use opsgenie and SRE team is on a constant roster - so on a rotation basis different engineers are on-call.&lt;/p&gt;
+
+&lt;p&gt;There was a request to integrate service health on consul to opsgenie. Quick search over internet revealed that there is a solution called &lt;a href=&quot;https://github.com/AcalephStorage/consul-alerts&quot;&gt;consul-alerts&lt;/a&gt; which is also the official &lt;a href=&quot;https://www.opsgenie.com/docs/integrations/consul-integration&quot;&gt;recommendation from opsgenie&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;After installing it and trying to figure out - to be frank - I couldn’t comprehend it well (couldn’t get it deliver notifications successfully rather). So I thought, let me get to first principles and use the native &lt;code&gt;consul watch&lt;/code&gt; command and some &lt;code&gt;bash&lt;/code&gt; to do the simple job (isn’t KISS something never to be forgotten?) and came up with this simple(st possible) script which does the job well. This script is invoked from an &lt;code&gt;upstart&lt;/code&gt; script (ubuntu 14.04) which takes care of re-running it if it gets killed somehow.&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;c&quot;&gt;#!/bin/bash &lt;/span&gt;
+
+&lt;span class=&quot;nv&quot;&gt;OLD_SERVICES_CRITICAL&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;while&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;[&lt;/span&gt; &lt;span class=&quot;m&quot;&gt;1&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;]&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;do&lt;/span&gt; 
+  rm -f /tmp/consul/services.txt
+  consul-template -consul &amp;lt;___CONSUL_SERVICE_IP_HERE____&amp;gt;:8500 -template&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&amp;quot;/tmp/consul/services.alert.ctmpl:/tmp/consul/services.txt&amp;quot;&lt;/span&gt; -once
+  &lt;span class=&quot;nv&quot;&gt;SERVICES_CRITICAL&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt;cat /tmp/consul/services.txt &lt;span class=&quot;p&quot;&gt;|&lt;/span&gt; grep -i critical &lt;span class=&quot;p&quot;&gt;|&lt;/span&gt; awk &lt;span class=&quot;s1&quot;&gt;&amp;#39;{print &amp;quot;[&amp;quot;$1&amp;quot; &amp;quot;$2&amp;quot;]&amp;quot;}&amp;#39;&lt;/span&gt;&lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt;
+
+  &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;[&lt;/span&gt; ! -z &lt;span class=&quot;s2&quot;&gt;&amp;quot;$OLD_SERVICES_CRITICAL&amp;quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;[&lt;/span&gt; -z &lt;span class=&quot;s2&quot;&gt;&amp;quot;$SERVICES_CRITICAL&amp;quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;]&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; 
+    &lt;span class=&quot;nv&quot;&gt;OLD_SERVICES_CRITICAL&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&amp;quot;&amp;quot;&lt;/span&gt;
+  &lt;span class=&quot;k&quot;&gt;fi&lt;/span&gt;
+
+  &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;[&lt;/span&gt; ! -z &lt;span class=&quot;s2&quot;&gt;&amp;quot;$SERVICES_CRITICAL&amp;quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;[&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$SERVICES_CRITICAL&lt;/span&gt; -ne &lt;span class=&quot;nv&quot;&gt;$OLD_SERVICES_CRITICAL&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;]&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;then&lt;/span&gt;
+    curl -XPOST &lt;span class=&quot;s1&quot;&gt;&amp;#39;https://api.opsgenie.com/v1/json/alert&amp;#39;&lt;/span&gt; -d&lt;span class=&quot;s2&quot;&gt;&amp;quot;{&lt;/span&gt;
+&lt;span class=&quot;s2&quot;&gt;      \&amp;quot;apiKey\&amp;quot;: \&amp;quot;______YOUR_OPSGENIE_KEY_HERE______\&amp;quot;, &lt;/span&gt;
+&lt;span class=&quot;s2&quot;&gt;      \&amp;quot;message\&amp;quot;: \&amp;quot;Services down: $SERVICES_CRITICAL.\&amp;quot;,&lt;/span&gt;
+&lt;span class=&quot;s2&quot;&gt;      \&amp;quot;teams\&amp;quot;: [\&amp;quot;______YOUR_SRE_TEAM_NAME_HERE_____\&amp;quot;]&lt;/span&gt;
+&lt;span class=&quot;s2&quot;&gt;    }&amp;quot;&lt;/span&gt;
+    
+    &lt;span class=&quot;c&quot;&gt;# Add an alert to Slack.&lt;/span&gt;
+    &lt;span class=&quot;c&quot;&gt;#... &lt;/span&gt;
+
+    &lt;span class=&quot;c&quot;&gt;# Add an alert to Mattermost.&lt;/span&gt;
+    &lt;span class=&quot;c&quot;&gt;#... &lt;/span&gt;
+
+    &lt;span class=&quot;nv&quot;&gt;OLD_SERVICES_CRITICAL&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$SERVICES_CRITICAL&lt;/span&gt;
+  &lt;span class=&quot;k&quot;&gt;fi&lt;/span&gt;
+
+  &lt;span class=&quot;c&quot;&gt;## every 10 seconds&lt;/span&gt;
+  sleep 10
+&lt;span class=&quot;k&quot;&gt;done&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;&lt;code&gt;service.alert.ctmpl&lt;/code&gt; is simple - it lists down all service names, their IP, their port and current status (passing, warning, critical etc.):&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;o&quot;&gt;{{&lt;/span&gt; range services &lt;span class=&quot;o&quot;&gt;}}{{&lt;/span&gt; range service .Name &lt;span class=&quot;s2&quot;&gt;&amp;quot;any&amp;quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;}}&lt;/span&gt;
+&lt;span class=&quot;o&quot;&gt;{{&lt;/span&gt;.Name&lt;span class=&quot;o&quot;&gt;}}&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{{&lt;/span&gt;.Address&lt;span class=&quot;o&quot;&gt;}}&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{{&lt;/span&gt;.Port&lt;span class=&quot;o&quot;&gt;}}&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{{&lt;/span&gt;.Status&lt;span class=&quot;o&quot;&gt;}}&lt;/span&gt;
+&lt;span class=&quot;o&quot;&gt;{{&lt;/span&gt;end&lt;span class=&quot;o&quot;&gt;}}{{&lt;/span&gt; end &lt;span class=&quot;o&quot;&gt;}}&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;It took less than 5 minutes to get this running.&lt;/p&gt;
+</content>
+ </entry>
+ 
+ <entry>
+   <title>On slow regular expressions in golang</title>
+   <link href="https://awmanoj.github.io/tech/2016/09/08/on-slow-regular-expressions-golang/"/>
+   <updated>2016-09-08T00:00:00+07:00</updated>
+   <id>https://awmanoj.github.io/tech/2016/09/08/on-slow-regular-expressions-golang</id>
+   <content type="html">&lt;p&gt;Few months back, a colleague mentioned over lunch &lt;a href=&quot;http://benchmarksgame.alioth.debian.org/u64q/compare.php?lang=go&amp;amp;lang2=python3&quot;&gt;how slow golang regular expressions are&lt;/a&gt; - this was not only compared to awesome performance of Perl regex or PCRE but also other languages. Recently, while looking for threads discussing Go vs Python wrt regex I got hold of following comments (by &lt;a href=&quot;https://swtch.com/~rsc/&quot;&gt;Russ Cox&lt;/a&gt;):&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;First of all, Ruby and Python are using C implementations of the regexp search, so Go is being beat by C, not by Ruby.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;More importantly,&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;Second, Go is using a different algorithm for regexp matching than the C implementations in those other languages. The algorithm Go uses guarantees to complete in time that is linear in the length of the input. The algorithm that Ruby/Python/etc are using can take time exponential in the length of the input, although on trivial cases it typically runs quite fast. In order to guarantee the linear time bound, Go’s algorithm’s best case speed a little slower than the optimistic Ruby/Python/etc algorithm. On the other hand, there are inputs for which Go will return quickly and Ruby/Python/etc need more time than is left before the heat death of the universe. It’s a decent tradeoff.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;Take away 1: Fair enough!&lt;/p&gt;
+
+&lt;p&gt;Take away 2: Prefer using &lt;code&gt;strings&lt;/code&gt; functions if your job gets done with that. Didn’t authors already tell us Go is an opinionated language!&lt;/p&gt;
+</content>
+ </entry>
+ 
+ <entry>
+   <title>Using consul watch and git diff to track key value changes</title>
+   <link href="https://awmanoj.github.io/tech/2016/09/03/using-consul-watch-and-git/"/>
+   <updated>2016-09-03T00:00:00+07:00</updated>
+   <id>https://awmanoj.github.io/tech/2016/09/03/using-consul-watch-and-git</id>
+   <content type="html">&lt;p&gt;In the &lt;a href=&quot;https://awmanoj.github.io/tech/2016/08/27/service-discovery-configuration-management-with-consul/&quot;&gt;previous post&lt;/a&gt; I introduced how consul is a simple, distributed and fault tolerant system for service discovery and configuration management.&lt;/p&gt;
+
+&lt;p&gt;Now, a common need is how do we track if someone has changed a key value or added or deleted a key? Solution is &lt;code&gt;consul watch&lt;/code&gt; command. We can use &lt;a href=&quot;https://www.consul.io/docs/agent/watches.html&quot;&gt;&lt;code&gt;consul watch&lt;/code&gt;&lt;/a&gt; for registering a handler which gets called whenever there is a key-value change. Its format is:&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;nv&quot;&gt;$ &lt;/span&gt;consul watch -http-addr consul.service.local:8500 -type keyprefix -prefix global /usr/local/bin/watch_handler.sh&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;But there is a problem - everytime there is a change in a key value e.g. key &lt;code&gt;global/redis/cacheA&lt;/code&gt; is changed from &lt;code&gt;192.168.1.1&lt;/code&gt; to &lt;code&gt;192.168.1.2&lt;/code&gt; then consul watch handler gets invoked with latest values only i.e. &lt;code&gt;192.168.1.2&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;We felt that there is a need to know the change in full context i.e. &lt;code&gt;old_value&lt;/code&gt; and &lt;code&gt;new_value&lt;/code&gt;. After some searching and not finding a solution we devised a method (rather novel I’d say but I am blinded by bias) by using &lt;code&gt;git&lt;/code&gt; - the most awesome change control system - in local mode (no &lt;code&gt;remote&lt;/code&gt; set).&lt;/p&gt;
+
+&lt;p&gt;Idea is simple.&lt;/p&gt;
+
+&lt;p&gt;Following steps are to be done as part of the initial setup:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;On the node where you want to setup the alert system designate a directory say &lt;code&gt;/var/consul/data&lt;/code&gt;.&lt;/li&gt;
+  &lt;li&gt;Run following command to initialize this directory as a git repo.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;nv&quot;&gt;$ &lt;/span&gt;git init&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Run following command to save the latest snapshot of all key values for keys starting with prefix &lt;code&gt;global&lt;/code&gt; to &lt;code&gt;kvs.txt&lt;/code&gt;.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;nv&quot;&gt;$ &lt;/span&gt;consul watch -http-addr consul.service.local:8500 -type keyprefix -prefix global &amp;gt; kvs.txt&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Add and commit to the local git repo&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;nv&quot;&gt;$ &lt;/span&gt;git add kvs.txt 
+... 
+&lt;span class=&quot;nv&quot;&gt;$ &lt;/span&gt;git commit -m &lt;span class=&quot;s2&quot;&gt;&amp;quot;Update kvs.txt&amp;quot;&lt;/span&gt;
+...&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;Once the above setup is done - run the &lt;code&gt;consul watch&lt;/code&gt; in daemon mode (via upstart preferably):&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;nv&quot;&gt;$ &lt;/span&gt;consul watch -http-addr consul.service.local:8500 -type keyprefix -prefix global /usr/local/bin/watch_handler.sh&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;This ensures that when there is a change in any of the key values under the specified prefixed keys then it will trigger the execution of &lt;code&gt;watch_handler.sh&lt;/code&gt;. This script does following on each such trigger:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Change directory to &lt;code&gt;/var/consul/data/&lt;/code&gt;.&lt;/li&gt;
+  &lt;li&gt;Run following command to get the latest (post change) key values:&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;nv&quot;&gt;$ &lt;/span&gt;consul watch -http-addr consul.service.local:8500 -type keyprefix -prefix global &amp;gt; kvs.txt&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Execute &lt;code&gt;git diff&lt;/code&gt;.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;If empty (no change) then don’t do anything else trigger your alert mechanism with the output of &lt;code&gt;git diff&lt;/code&gt; command (e.g. mail, &lt;a href=&quot;https://api.slack.com/incoming-webhooks&quot;&gt;slack&lt;/a&gt;, &lt;a href=&quot;https://docs.mattermost.com/developer/webhooks-incoming.html&quot;&gt;mattermost&lt;/a&gt; etc.)&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Now that the alert is already sent - commit the new change locally.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;nv&quot;&gt;$ &lt;/span&gt;git add kvs.txt 
+... 
+&lt;span class=&quot;nv&quot;&gt;$ &lt;/span&gt;git commit -m &lt;span class=&quot;s2&quot;&gt;&amp;quot;Update kvs.txt&amp;quot;&lt;/span&gt;
+...&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;Note: You will need to do a bit more actually than just &lt;code&gt;git diff&lt;/code&gt; since the diff command gives values in &lt;code&gt;base64 encoding&lt;/code&gt;. To convert that into readable values you will need to use &lt;code&gt;base64&lt;/code&gt; utility and some play with &lt;code&gt;sed&lt;/code&gt;, &lt;code&gt;awk&lt;/code&gt; etc. Following is some code which can be handy:&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;nv&quot;&gt;OLD&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt;git diff &lt;span class=&quot;p&quot;&gt;|&lt;/span&gt; sed -e &lt;span class=&quot;s1&quot;&gt;&amp;#39;s/\&amp;quot;//g&amp;#39;&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;|&lt;/span&gt; grep Value &lt;span class=&quot;p&quot;&gt;|&lt;/span&gt; awk -F&lt;span class=&quot;s1&quot;&gt;&amp;#39;Value:&amp;#39;&lt;/span&gt;  &lt;span class=&quot;s1&quot;&gt;&amp;#39;{print $2}&amp;#39;&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;|&lt;/span&gt; awk -F, &lt;span class=&quot;s1&quot;&gt;&amp;#39;{print $1}&amp;#39;&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;|&lt;/span&gt; awk &lt;span class=&quot;s1&quot;&gt;&amp;#39;{print $1}&amp;#39;&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;|&lt;/span&gt; head -1 &lt;span class=&quot;p&quot;&gt;|&lt;/span&gt; base64 -d &lt;span class=&quot;p&quot;&gt;|&lt;/span&gt; sed -e &lt;span class=&quot;s1&quot;&gt;&amp;#39;s/^/&amp;gt;/g&amp;#39;&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;|&lt;/span&gt; sed -e &lt;span class=&quot;s1&quot;&gt;&amp;#39;s/$/\\n/g&amp;#39;&lt;/span&gt;&lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt; 
+&lt;span class=&quot;nv&quot;&gt;NEW&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt;git diff &lt;span class=&quot;p&quot;&gt;|&lt;/span&gt; sed -e &lt;span class=&quot;s1&quot;&gt;&amp;#39;s/\&amp;quot;//g&amp;#39;&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;|&lt;/span&gt; grep Value &lt;span class=&quot;p&quot;&gt;|&lt;/span&gt; awk -F&lt;span class=&quot;s1&quot;&gt;&amp;#39;Value:&amp;#39;&lt;/span&gt;  &lt;span class=&quot;s1&quot;&gt;&amp;#39;{print $2}&amp;#39;&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;|&lt;/span&gt; awk -F, &lt;span class=&quot;s1&quot;&gt;&amp;#39;{print $1}&amp;#39;&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;|&lt;/span&gt; awk &lt;span class=&quot;s1&quot;&gt;&amp;#39;{print $1}&amp;#39;&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;|&lt;/span&gt; sed &lt;span class=&quot;s1&quot;&gt;&amp;#39;2q;d&amp;#39;&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;|&lt;/span&gt; base64 -d &lt;span class=&quot;p&quot;&gt;|&lt;/span&gt; sed -e &lt;span class=&quot;s1&quot;&gt;&amp;#39;s/^/&amp;gt;/g&amp;#39;&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;|&lt;/span&gt; sed -e &lt;span class=&quot;s1&quot;&gt;&amp;#39;s/$/\\n/g&amp;#39;&lt;/span&gt;&lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;This is a screenshot of the change alert in our slack:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/assets/img/consul-watch.png&quot; alt=&quot;Slack consul change alert screenshot&quot; /&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;epilogue&quot;&gt;Epilogue&lt;/h3&gt;
+
+&lt;p&gt;In addition to providing the full context of change, this solution is also useful in keeping a local versioned history and is helpful in reverting to older values easily by using &lt;code&gt;git revert&lt;/code&gt; or &lt;code&gt;git reset ... &lt;/code&gt; commands.&lt;/p&gt;
+
+&lt;p&gt;Credit to use of &lt;code&gt;git&lt;/code&gt; for this goes to &lt;a href=&quot;https://twitter.com/kernelhacker&quot;&gt;@kernelhacker&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;I don’t yet know if there is any other builtin technique in &lt;code&gt;consul-watch&lt;/code&gt; to achieve the same thing. If you know please drop a tweet at &lt;a href=&quot;https://twitter.com/awmanoj&quot;&gt;@awmanoj&lt;/a&gt;. TIA.&lt;/p&gt;
+
+</content>
+ </entry>
+ 
+ <entry>
+   <title>Service discovery, configuration management with Consul</title>
+   <link href="https://awmanoj.github.io/tech/2016/08/27/service-discovery-configuration-management-with-consul/"/>
+   <updated>2016-08-27T00:00:00+07:00</updated>
+   <id>https://awmanoj.github.io/tech/2016/08/27/service-discovery-configuration-management-with-consul</id>
+   <content type="html">&lt;p&gt;If you have a reasonably growing setup of services then you would already know what kind of hell configuration management becomes. Let me give an example. Suppose there are three services A, B and C which depend on two redis instances &lt;code&gt;192.168.1.1:6379&lt;/code&gt;, &lt;code&gt;192.168.1.2:6379&lt;/code&gt; and a postgres instance &lt;code&gt;192.168.1.3:5432&lt;/code&gt; then your configuration for the three services would look something like this:&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;o&quot;&gt;[&lt;/span&gt;Redis&lt;span class=&quot;o&quot;&gt;]&lt;/span&gt;
+	&lt;span class=&quot;nv&quot;&gt;cacheA&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; 192.168.1.1:6379
+	&lt;span class=&quot;nv&quot;&gt;cacheB&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; 192.168.1.2:6379
+&lt;span class=&quot;o&quot;&gt;[&lt;/span&gt;Postgres&lt;span class=&quot;o&quot;&gt;]&lt;/span&gt;
+	&lt;span class=&quot;nv&quot;&gt;mainDb&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; 192.168.1.3:5432 
+... &lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;Now, add to this the fact that services could be concurrent and running on multiple servers behind some load balancer i.e. A is not one single physical server (or VM) but multiple i.e. A1, A2, A3 and similarly B is say B1, B2 and C is say just C1.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/assets/img/ex-setup.png&quot; alt=&quot;Example setup&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;So probably you already see the problem. If we have some trouble with redis cacheA and we have to replace this instance with another one say &lt;code&gt;192.168.1.4:6379&lt;/code&gt; then we essentially have two options:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Manually ssh to each of the running instances (i.e. A1, A2, A3, B1, B2, C1), make the configuration change and restart or reload the service.&lt;/li&gt;
+  &lt;li&gt;Better - make the change in configuration in the code and redeploy the services on instances using the continuous integration system you’re using (jenkins?).&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;The second of the above two is less painful but is waste of effort if this switch to alternate redis is temporary. It also takes considerable effort in terms of making change to code on all three repositories (A, B and C), building them via continuous integration system and deploying. It also takes considerable time.&lt;/p&gt;
+
+&lt;p&gt;A related problem to configuration management is Service discovery. Let’s take for example following nginx configuration which defines a server that is reverse proxy to few backend instances of services.&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;upstream backend &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+    server backend1.example.com &lt;span class=&quot;nv&quot;&gt;weight&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;5&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    server backend2.example.com&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    server backend3.example.com&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    server backup1.example.com  backup&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+
+server &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+    ...
+    location /v1/awesome/service &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+        proxy_pass backend&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+
+&lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;Nginx is awesome in distributing load on the site amongst the instances backend1, backend2 and backend3 in weighted round robin fashion. But how do we deal with servers which are down? Suppose backend2.example.com goes down - we would ideally want to remove it from the configuration immediately making it look like:&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;upstream backend &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+    server backend1.example.com &lt;span class=&quot;nv&quot;&gt;weight&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;5&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    server backend3.example.com&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    server backup1.example.com  backup&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+...&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;Also, as soon as the service backend2.example.com is online again, we should add it to the backend:&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;upstream backend &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+    server backend1.example.com &lt;span class=&quot;nv&quot;&gt;weight&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;5&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    server backend2.example.com&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    server backend3.example.com&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    server backup1.example.com  backup&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+...&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;Do we have a solution? Actually, there are many solutions for this problem. One of them is topic of this post.&lt;/p&gt;
+
+&lt;h3 id=&quot;consul-&quot;&gt;consul.. !&lt;/h3&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://www.consul.io/&quot;&gt;Consul&lt;/a&gt; is a very simple service discovery and configuration management solution. This means it can store configuration data or rather any kind of key-value data. It can also maintain services information i.e. services can register and deregister with consul. Consul provides HTTP and DNS APIs for service discovery. It is distributed, HA and datacenter-aware.&lt;/p&gt;
+
+&lt;p&gt;The last property is particularly useful - if you have multiple data centers (multiple availability zones in AWS or may be a DC from AWS and another on from Google or Alibaba) then you can have a consul cluster on each of them which can contain cluster specific configuration (key value stores, service information) and each of those clusters can be made to be aware of the other. As needed configuration can be &lt;a href=&quot;https://github.com/hashicorp/consul-replicate&quot;&gt;replicated too across data centers&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;Consul is written in &lt;code&gt;go&lt;/code&gt; and hence is available as a native binary. It is in the same league of softwares as &lt;a href=&quot;https://coreos.com/etcd/&quot;&gt;etcd&lt;/a&gt;, &lt;a href=&quot;https://zookeeper.apache.org/&quot;&gt;zookeeper&lt;/a&gt; etc. (in terms of functional usage) but I think it is much simpler for deployment and usage.&lt;/p&gt;
+
+&lt;h3 id=&quot;setup&quot;&gt;Setup&lt;/h3&gt;
+
+&lt;p&gt;You can play with consul by following &lt;a href=&quot;https://www.consul.io/docs/agent/basics.html&quot;&gt;this quickstart guide&lt;/a&gt;. For production deployment you can use this awesome guide for &lt;a href=&quot;https://www.digitalocean.com/community/tutorials/how-to-configure-consul-in-a-production-environment-on-ubuntu-14-04&quot;&gt;production setup of consul on Ubuntu&lt;/a&gt; (other guides also available there).&lt;/p&gt;
+
+&lt;p&gt;As part of consul cluster setup you will also setup consul Web UI which is the interface to list all services registered with consul, how many nodes under each of the services are running successful (‘passing’ or ‘failing’), all key values (complete CRUD for these and hence you can create, modify keys from the UI itself). Following are the screenshots for web UI (services and key values):&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/assets/img/services-1.png&quot; alt=&quot;consul web UI - services&quot; /&gt;
+&lt;img src=&quot;/public/assets/img/keyvalue.png&quot; alt=&quot;consul web UI - key values&quot; /&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;consul-template&quot;&gt;Consul-template&lt;/h3&gt;
+
+&lt;p&gt;Now, that you have the cluster ready and populated with configuration data (key values) that you would want to refer to from apps - how really do you use these. Here comes &lt;a href=&quot;https://github.com/hashicorp/consul-template&quot;&gt;consul-template&lt;/a&gt; - another native binary produced from the &lt;code&gt;go&lt;/code&gt; code. From it’s read me:&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;This project provides a convenient way to populate values from Consul into the file system using the consul-template daemon.
+The daemon consul-template queries a Consul instance and updates any number of specified templates on the file system.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;and ..&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;As an added bonus, consul-template can optionally run arbitrary commands when the update process completes.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;h3 id=&quot;configuration-management&quot;&gt;Configuration Management&lt;/h3&gt;
+
+&lt;p&gt;So - let’s get back to our examples above. To recap, we had three services A, B and C. Each had a configuration referring the two redis instances cacheA and cacheB.&lt;/p&gt;
+
+&lt;p&gt;With consul:&lt;/p&gt;
+
+&lt;p&gt;o. you replace the fixed configuration file in your code:&lt;/p&gt;
+
+&lt;p&gt;file: app.prod.ini&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;o&quot;&gt;[&lt;/span&gt;Redis&lt;span class=&quot;o&quot;&gt;]&lt;/span&gt;
+	&lt;span class=&quot;nv&quot;&gt;cacheA&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; 192.168.1.1:6379
+	&lt;span class=&quot;nv&quot;&gt;cacheB&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; 192.168.1.2:6379
+&lt;span class=&quot;o&quot;&gt;[&lt;/span&gt;Postgres&lt;span class=&quot;o&quot;&gt;]&lt;/span&gt;
+	&lt;span class=&quot;nv&quot;&gt;mainDb&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; 192.168.1.3:5432 &lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;with a consul template file:&lt;/p&gt;
+
+&lt;p&gt;file: app.prod.ini.ctmpl&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;o&quot;&gt;[&lt;/span&gt;Redis&lt;span class=&quot;o&quot;&gt;]&lt;/span&gt;
+    &lt;span class=&quot;nv&quot;&gt;cacheA&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{{&lt;/span&gt; key &lt;span class=&quot;s2&quot;&gt;&amp;quot;service/redis/cacheA&amp;quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;}}&lt;/span&gt;
+    &lt;span class=&quot;nv&quot;&gt;cacheB&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{{&lt;/span&gt; key &lt;span class=&quot;s2&quot;&gt;&amp;quot;service/redis/cacheB&amp;quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;}}&lt;/span&gt;
+&lt;span class=&quot;o&quot;&gt;[&lt;/span&gt;Postgres&lt;span class=&quot;o&quot;&gt;]&lt;/span&gt;
+    &lt;span class=&quot;nv&quot;&gt;mainDb&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;{{&lt;/span&gt; key &lt;span class=&quot;s2&quot;&gt;&amp;quot;service/postgresql/mainDb&amp;quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;}}&lt;/span&gt; // ignore username, password etc.&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;o. you install consul-template on each of those instances where the services A, B and C are running.&lt;/p&gt;
+
+&lt;p&gt;Note that this is a one-time investment and things will be even easier if you are using some automation tool like ansible or cloudformation (or chef, puppet). If you aren’t using any of these and still setting up every new server by hand - you should try one of these - my current favorite is Ansible.&lt;/p&gt;
+
+&lt;p&gt;so, now A1, A2, A3, B1, B2, C1 all have consul-template installed. Create an upstart for consul-template in which you run it as a daemon like following:&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;nv&quot;&gt;$ &lt;/span&gt;/usr/local/bin/consul-template -consul &lt;span class=&quot;s2&quot;&gt;&amp;quot;&amp;lt;__ONE_OF_CONSUL_NODES_IP&amp;gt;:8500&amp;quot;&lt;/span&gt; -template&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&amp;quot;/etc/appA/app.prod.ini.ctmpl:/etc/appA/app.prod.ini&amp;quot;&lt;/span&gt; &amp;gt;&amp;gt; /var/log/consul.log 2&amp;gt;&lt;span class=&quot;p&quot;&gt;&amp;amp;&lt;/span&gt;1&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;Your apps will be responsible for upstart scripts in this case and will be installed on deployment.&lt;/p&gt;
+
+&lt;p&gt;o. Now, when your redis instance cacheA goes down as we assumed in our hypothetical scenario above and you have to replace it with &lt;code&gt;192.168.1.4:6379&lt;/code&gt; you simply need to go to consul web UI and update the key &lt;code&gt;service/redis/cacheA&lt;/code&gt; to &lt;code&gt;192.168.1.4:6379&lt;/code&gt; and consul-template which is running as a daemon will update the configuration instantly. Consul-template takes more arguments and you can write better command line by using config instead of &lt;code&gt;-consul&lt;/code&gt; and &lt;code&gt;-template&lt;/code&gt; as mentioned above. In the config format you can specify how to reload your app after config update happens. You can read more about it on the &lt;a href=&quot;https://github.com/hashicorp/consul-template&quot;&gt;consul-template readme&lt;/a&gt;. Btw, you just saw how automated configuration management now is &amp;amp; you’re done!&lt;/p&gt;
+
+&lt;h3 id=&quot;service-discovery&quot;&gt;Service Discovery&lt;/h3&gt;
+
+&lt;p&gt;A service is registered with consul cluster by running &lt;code&gt;consul&lt;/code&gt; in client mode and keeping some configuration about the service in consul configuration directory. Alternatively, we can also use consul HTTP API for registering a service. You can get a &lt;a href=&quot;https://www.consul.io/docs/agent/services.html&quot;&gt;comprehensive documentation&lt;/a&gt; on the consul website.&lt;/p&gt;
+
+&lt;p&gt;file: /etc/consul.d/redis_cache_a.json&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+  &lt;span class=&quot;s2&quot;&gt;&amp;quot;service&amp;quot;&lt;/span&gt;: &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;s2&quot;&gt;&amp;quot;name&amp;quot;&lt;/span&gt;: &lt;span class=&quot;s2&quot;&gt;&amp;quot;redis-cache-a&amp;quot;&lt;/span&gt;,
+    &lt;span class=&quot;s2&quot;&gt;&amp;quot;tags&amp;quot;&lt;/span&gt;: &lt;span class=&quot;o&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&amp;quot;master&amp;quot;&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;]&lt;/span&gt;,
+    &lt;span class=&quot;s2&quot;&gt;&amp;quot;address&amp;quot;&lt;/span&gt;: &lt;span class=&quot;s2&quot;&gt;&amp;quot;127.0.0.1&amp;quot;&lt;/span&gt;,
+    &lt;span class=&quot;s2&quot;&gt;&amp;quot;port&amp;quot;&lt;/span&gt;: 6379,
+    &lt;span class=&quot;s2&quot;&gt;&amp;quot;enableTagOverride&amp;quot;&lt;/span&gt;: &lt;span class=&quot;nb&quot;&gt;false&lt;/span&gt;,
+    &lt;span class=&quot;s2&quot;&gt;&amp;quot;checks&amp;quot;&lt;/span&gt;: &lt;span class=&quot;o&quot;&gt;[&lt;/span&gt;
+      &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;s2&quot;&gt;&amp;quot;script&amp;quot;&lt;/span&gt;: &lt;span class=&quot;s2&quot;&gt;&amp;quot;/usr/local/bin/check_redis.py&amp;quot;&lt;/span&gt;,
+        &lt;span class=&quot;s2&quot;&gt;&amp;quot;interval&amp;quot;&lt;/span&gt;: &lt;span class=&quot;s2&quot;&gt;&amp;quot;10s&amp;quot;&lt;/span&gt;
+      &lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+    &lt;span class=&quot;o&quot;&gt;]&lt;/span&gt;
+  &lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+&lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;There are few things here to note. We can specify a custom check script which is health checker of the service. If this script fails then consul marks the node as failed or service as down. You can also use following instead of a bash script:&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt; 
+&lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+...
+  &lt;span class=&quot;s2&quot;&gt;&amp;quot;checks&amp;quot;&lt;/span&gt;: &lt;span class=&quot;o&quot;&gt;[&lt;/span&gt; 
+    &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt; 
+      &lt;span class=&quot;s2&quot;&gt;&amp;quot;tcp&amp;quot;&lt;/span&gt;: &lt;span class=&quot;s2&quot;&gt;&amp;quot;127.0.0.1:6379&amp;quot;&lt;/span&gt;,
+      .. 
+    &lt;span class=&quot;o&quot;&gt;}&lt;/span&gt; 
+  &lt;span class=&quot;o&quot;&gt;]&lt;/span&gt;
+..
+&lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;This basically checks TCP connection on the specified port. There is more comprehensive list of possible checks in docs.&lt;/p&gt;
+
+&lt;p&gt;Other thing to note is the name of the service - this is an identifier of the service and hence it should be chosen as service identifier. It is recommended though to keep it readable and easy to remember. If your service A has a codename e.g. some greek god (what else?) like zeus then you can use that here.&lt;/p&gt;
+
+&lt;p&gt;Once your service is registered with consul, you can check it on both HTTP and DNS interface. Let’s see how it is to check it on DNS interface using &lt;code&gt;dig&lt;/code&gt; unix utility:&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;nv&quot;&gt;$ &lt;/span&gt;dig @127.0.0.1 -p &lt;span class=&quot;m&quot;&gt;8600&lt;/span&gt; redis-cache-a.service.dc1.consul. ANY&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;(dc1 is the datacenter name for consul)&lt;/p&gt;
+
+&lt;p&gt;Once this is setup and your services are registered you can use consul-template again to generate nginx configuration file based on which services are alive.&lt;/p&gt;
+
+&lt;p&gt;file: awesome-service.awesome.net&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt; 
+upstream backend &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+    server backend1.example.com&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    server backend2.example.com&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    server backend3.example.com&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+
+server &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+    ...
+    location /v1/awesome/service &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+        proxy_pass backend&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+
+&lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;file: awesome-service.awesome.net.ctmpl&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt; 
+
+upstream backend &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;o&quot;&gt;{{&lt;/span&gt;range service &lt;span class=&quot;s2&quot;&gt;&amp;quot;web@dc1&amp;quot;&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;}}&lt;/span&gt;
+    server &lt;span class=&quot;o&quot;&gt;{{&lt;/span&gt;.Address&lt;span class=&quot;o&quot;&gt;}}&lt;/span&gt;:&lt;span class=&quot;o&quot;&gt;{{&lt;/span&gt;.Port&lt;span class=&quot;o&quot;&gt;}}{{&lt;/span&gt;end&lt;span class=&quot;o&quot;&gt;}}&lt;/span&gt;
+&lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+
+server &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+    ...
+    location /v1/awesome/service &lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+        proxy_pass backend&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+
+&lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;Consul returns, by default, only healthy services. You just saw how it can completely automate your configuration management and service discovery. Following is a sequence diagram of how the config changes take place:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/assets/img/consul-sd.png&quot; alt=&quot;consul sequence diagram&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;I have just touched the tip of iceberg with respect to the possibilities with consul - an introduction. If you aren’t tied up to another configuration management solution do give it a try.&lt;/p&gt;
+
+</content>
+ </entry>
+ 
+ <entry>
+   <title>Using Boltdb as a fast, persistent key value store</title>
+   <link href="https://awmanoj.github.io/2016/08/03/using-boltdb-as-a-fast-persistent-kv-store/"/>
+   <updated>2016-08-03T00:00:00+07:00</updated>
+   <id>https://awmanoj.github.io/2016/08/03/using-boltdb-as-a-fast-persistent-kv-store</id>
+   <content type="html">&lt;hr /&gt;
+
+&lt;p&gt;&lt;em&gt;Originally posted on &lt;a href=&quot;http://tech.tokopedia.com/blog/using-boltdb-as-a-fast-persistent-kv-store/&quot;&gt;Tokopedia Tech Blog&lt;/a&gt;&lt;/em&gt;&lt;/p&gt;
+&lt;hr /&gt;
+
+&lt;p&gt;Recently, we at &lt;a href=&quot;https://www.tokopedia.com/&quot;&gt;Tokopedia&lt;/a&gt; rearchitected a &lt;a href=&quot;https://golang.org/&quot;&gt;golang&lt;/a&gt; microservice which maps an Image (as in picture, photo, ..) ID to the fully qualified server name that hosts the image.&lt;/p&gt;
+
+&lt;h3 id=&quot;a-bit-of-context-is-always-good&quot;&gt;A bit of context is always good..&lt;/h3&gt;
+
+&lt;p&gt;Historically, we stored images and served images from multiple servers for reasons of scale. The mapping of which image is located on which server was in mongodb. And there was a layer of caching on top of it in redis, because mongo didn’t scale very well for the workload.&lt;/p&gt;
+
+&lt;p&gt;Gradually, we moved stuff to s3, which means all images uploaded from that point onwards could now be served from a single server, and no such mapping was required. However, old images were still being served in the same way, and they needed the mapping. The difference was, our database was now read only and fixed size.&lt;/p&gt;
+
+&lt;p&gt;We still occasionally suffered with memory spikes and service killed by linux oom-killer leading to both latency and downtimes.&lt;/p&gt;
+
+&lt;h3 id=&quot;search-for-alternative&quot;&gt;Search for alternative..&lt;/h3&gt;
+
+&lt;p&gt;Requirements for the service:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Persistent storage&lt;/li&gt;
+  &lt;li&gt;Fast retrieval (tens of thousand QPS)&lt;/li&gt;
+  &lt;li&gt;&lt;code&gt;Read only&lt;/code&gt; usage&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Since our requirement is also “read-heavy” usage on a fixed size database (infact, it is read-only usage) we knew we need a lightweight embedded DB solution. There are multiple solutions that exist for this problem but we zeroed on &lt;a href=&quot;https://github.com/boltdb/bolt&quot;&gt;Boltdb&lt;/a&gt;.&lt;/p&gt;
+
+&lt;h3 id=&quot;why-boltdb&quot;&gt;Why Boltdb?&lt;/h3&gt;
+&lt;ul&gt;
+  &lt;li&gt;written in &lt;a href=&quot;https://golang.org/&quot;&gt;go&lt;/a&gt; and hence fits with rest of the stack well.&lt;/li&gt;
+  &lt;li&gt;compact, fast (it based on &lt;a href=&quot;https://symas.com/products/lightning-memory-mapped-database/&quot;&gt;LMDB&lt;/a&gt;. Both use a B+tree, have ACID semantics with fully serializable transactions, and support lock-free MVCC using a single writer and multiple readers.&lt;/li&gt;
+  &lt;li&gt;LMDB heavily focuses on raw performance while Bolt has focused on simplicity and ease of use.&lt;/li&gt;
+  &lt;li&gt;fits better for a &lt;code&gt;read heavy&lt;/code&gt; usage.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;how-to-use&quot;&gt;How to use?&lt;/h3&gt;
+
+&lt;p&gt;In pure sense, &lt;code&gt;boltdb&lt;/code&gt; is not really a database but simply a memory mapped file but it provides ACID semantics as provided by databases so calling it a DB is not misnomer. It comes as a library so installation is as simple as &lt;code&gt;importing&lt;/code&gt; a go package.&lt;/p&gt;
+
+&lt;p&gt;You can go through the detailed &lt;a href=&quot;https://github.com/boltdb/bolt&quot;&gt;README&lt;/a&gt; and &lt;a href=&quot;https://godoc.org/github.com/boltdb/bolt&quot;&gt;GoDoc&lt;/a&gt; to get started.&lt;/p&gt;
+
+&lt;p&gt;Opening database is as simple as:&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-go&quot; data-lang=&quot;go&quot;&gt;&lt;span class=&quot;nx&quot;&gt;db&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;err&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;:=&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;bolt&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;Open&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&amp;quot;my.db&amp;quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mo&quot;&gt;0666&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;bolt&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;Options&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;ReadOnly&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;kc&quot;&gt;true&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;})&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;err&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;!=&lt;/span&gt; &lt;span class=&quot;kc&quot;&gt;nil&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;nx&quot;&gt;log&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;Fatal&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;err&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;Add a key value (&lt;code&gt;answer&lt;/code&gt; = &lt;code&gt;42&lt;/code&gt;):&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-go&quot; data-lang=&quot;go&quot;&gt;&lt;span class=&quot;nx&quot;&gt;db&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;Update&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;kd&quot;&gt;func&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;tx&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;bolt&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;Tx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;kt&quot;&gt;error&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;nx&quot;&gt;b&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;:=&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;tx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;Bucket&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;([]&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;byte&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&amp;quot;MyBucket&amp;quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
+    &lt;span class=&quot;nx&quot;&gt;err&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;:=&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;b&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;Put&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;([]&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;byte&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&amp;quot;answer&amp;quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;),&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[]&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;byte&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&amp;quot;42&amp;quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;err&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;})&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;Fetch a value by key:&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-go&quot; data-lang=&quot;go&quot;&gt;&lt;span class=&quot;nx&quot;&gt;db&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;View&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;kd&quot;&gt;func&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;tx&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;bolt&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;Tx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;kt&quot;&gt;error&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;nx&quot;&gt;b&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;:=&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;tx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;Bucket&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;([]&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;byte&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&amp;quot;MyBucket&amp;quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
+    &lt;span class=&quot;nx&quot;&gt;v&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;:=&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;b&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;Get&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;([]&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;byte&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&amp;quot;answer&amp;quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
+    &lt;span class=&quot;nx&quot;&gt;fmt&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;Printf&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&amp;quot;The answer is: %s\n&amp;quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;v&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;kc&quot;&gt;nil&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;})&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;h3 id=&quot;command-line-utility---bolt&quot;&gt;Command line utility - &lt;code&gt;bolt&lt;/code&gt;&lt;/h3&gt;
+
+&lt;p&gt;Boltdb comes with a command line utility which can be used to inspect the correctness and statistics of a BoltDB file.&lt;/p&gt;
+
+&lt;h3 id=&quot;if-life-was-that-easy-&quot;&gt;If life was that easy.. !&lt;/h3&gt;
+
+&lt;p&gt;We imported all &lt;code&gt;mongodb&lt;/code&gt; data using &lt;code&gt;mongo-export&lt;/code&gt; utility. It was &lt;code&gt;~4 GB&lt;/code&gt; in size. We exported it to &lt;code&gt;boltdb&lt;/code&gt; using an export tool we wrote in &lt;code&gt;golang&lt;/code&gt;. The output file was a single &lt;code&gt;bolt.db&lt;/code&gt; file with size &lt;code&gt;~ 13 GB&lt;/code&gt;. This size increase was expected due to the internal data structure being used by &lt;code&gt;boltdb&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;What was not expected (or rather &lt;strong&gt;we&lt;/strong&gt; did not expect it) was that export tool became exponentially slower as the &lt;code&gt;bolt.db&lt;/code&gt; file grew larger. We estimated that each export would take days in this manner (in case we need to).&lt;/p&gt;
+
+&lt;p&gt;To solve this problem, we decided to use - you guessed it right - &lt;code&gt;sharding&lt;/code&gt;.&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;We broke down the initial &lt;code&gt;mongodb&lt;/code&gt; dump into &lt;code&gt;N&lt;/code&gt; files (&lt;a href=&quot;http://math.stackexchange.com/questions/183909/why-choose-a-prime-number-as-the-number-of-slots-for-hashing-function-that-uses&quot;&gt;choosing &lt;code&gt;N&lt;/code&gt;&lt;/a&gt;).&lt;/li&gt;
+  &lt;li&gt;We export each of those files into a boltdb file. We now have &lt;code&gt;N&lt;/code&gt; small boltdb files.&lt;/li&gt;
+  &lt;li&gt;When a query arrives for a key &lt;code&gt;K&lt;/code&gt;, we hash the key into a bucket between &lt;code&gt;0&lt;/code&gt; and &lt;code&gt;N-1&lt;/code&gt;. This hash value tells us in &lt;code&gt;O(1)&lt;/code&gt; time which boltdb to query on.&lt;/li&gt;
+  &lt;li&gt;Query itself is fast due to storage structure and you’re done!&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;This helped us export the data and generate BoltDB files in less than an hour time.&lt;/p&gt;
+
+&lt;p&gt;Following is the output of &lt;code&gt;free -m&lt;/code&gt; on one of the &lt;code&gt;3&lt;/code&gt; servers we use:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/assets/img/free-m.png&quot; alt=&quot;free -m&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;and this is the snippet from &lt;code&gt;top&lt;/code&gt; on the same server:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/public/assets/img/virtual-mem.png&quot; alt=&quot;top&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Note that the &lt;code&gt;VIRTUAL&lt;/code&gt; memory is exactly the total size of boltdb. Also note from above two outputs that it is not limited by physical RAM availability.&lt;/p&gt;
+
+&lt;h3 id=&quot;caveats--limitations&quot;&gt;Caveats &amp;amp; Limitations&lt;/h3&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Bolt is good for read intensive workloads. Random writes can be slow especially as the database (file) size grows.&lt;/li&gt;
+  &lt;li&gt;Bolt uses a B+tree internally so there can be a lot of random page access. SSDs provide a significant performance boost over spinning disks.&lt;/li&gt;
+  &lt;li&gt;Bolt can handle databases much larger than the available physical RAM, provided its memory-map fits in the process virtual address space. It may be problematic on 32-bits systems.&lt;/li&gt;
+  &lt;li&gt;The data structures in the Bolt database are memory mapped so the data file will be endian specific. This means that you cannot copy a Bolt file from a little endian machine to a big endian machine and have it work. For most users this is not a concern since most modern CPUs are little endian.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;result&quot;&gt;Result&lt;/h3&gt;
+
+&lt;p&gt;We successfully migrated to using &lt;code&gt;boltdb&lt;/code&gt; for our service. The service handles many thousands of QPS, is not limited by physical RAM on the machine and is working well.&lt;/p&gt;
+
+&lt;p&gt;&lt;code&gt;BoltDB&lt;/code&gt; looks awesome. Do give it a try if this fits your use-case.&lt;/p&gt;
+
+</content>
+ </entry>
+ 
+ <entry>
+   <title>Hello World!</title>
+   <link href="https://awmanoj.github.io/2016/06/25/hello-world/"/>
+   <updated>2016-06-25T00:00:00+07:00</updated>
+   <id>https://awmanoj.github.io/2016/06/25/hello-world</id>
+   <content type="html">&lt;p&gt;&lt;img src=&quot;/public/assets/img/love.jpg&quot; alt=&quot;Love&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;‘Love’ - in different language scripts.&lt;/p&gt;
+
+</content>
+ </entry>
+ 
+
+</feed>

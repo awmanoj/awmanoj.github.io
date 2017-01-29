@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en-us">
+
+  <head>
+  <link href="http://gmpg.org/xfn/11" rel="profile">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+
+  <!-- Enable responsiveness on mobile devices-->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+
+  <title>
+    
+      Consul Integration with Opsgenie &middot; Manoj Awasthi
+    
+  </title>
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="/public/css/poole.css">
+  <link rel="stylesheet" href="/public/css/syntax.css">
+  <link rel="stylesheet" href="/public/css/hyde.css">
+  <link rel="stylesheet" href="http://fonts.googleapis.com/css?family=PT+Sans:400,400italic,700|Abril+Fatface">
+
+  <!-- Icons -->
+  <link rel="apple-touch-icon-precomposed" sizes="144x144" href="/public/apple-touch-icon-144-precomposed.png">
+                                 <link rel="shortcut icon" href="/public/favicon.ico">
+
+  <!-- RSS -->
+  <link rel="alternate" type="application/rss+xml" title="RSS" href="/atom.xml">
+  
+</head>
+
+
+  <body>
+
+    <div class="sidebar">
+  <div class="container sidebar-sticky">
+    <div class="sidebar-about">
+      <h1>
+        <a href="/">
+          Manoj Awasthi
+        </a>
+      </h1>
+      <p class="lead">Autodidact.</p>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a class="sidebar-nav-item" href="/">Home</a>
+
+      
+
+      
+      
+        
+          
+        
+      
+        
+          
+            <a class="sidebar-nav-item" href="/about/">About</a>
+          
+        
+      
+        
+      
+        
+          
+        
+      
+        
+          
+        
+      
+
+      <a class="sidebar-nav-item" href="https://github.com/awmanoj">GitHub projects</a>
+	  <a href="http://feeds.feedburner.com/ManojAwasthi" title="Subscribe to my feed" rel="alternate" type="application/rss+xml"><img src="//feedburner.google.com/fb/images/pub/feed-icon32x32.png" alt="" style="border:0"/></a><a href="http://feeds.feedburner.com/ManojAwasthi" title="Subscribe to my feed" rel="alternate" type="application/rss+xml">Subscribe in a reader</a>
+
+<!-- 
+	  <a href="https://twitter.com/awmanoj" class="twitter-follow-button" data-show-count="false" data-lang="hi">@awmanoj को फ़ॉलो करें</a> <script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+'://platform.twitter.com/widgets.js';fjs.parentNode.insertBefore(js,fjs);}}(document, 'script', 'twitter-wjs');</script>
+
+-->
+	
+    </nav>
+
+
+    <p>&copy; 2016. All rights reserved.</p>
+  </div>
+</div>
+
+
+    <div class="content container">
+      <div class="post">
+  <h1 class="post-title">Consul Integration with Opsgenie</h1>
+  <span class="post-date">11 Sep 2016</span>
+  <p>In past I discussed about using <a href="https://awmanoj.github.io/tech/2016/08/27/service-discovery-configuration-management-with-consul/">consul as a service discovery and configuration management solution</a> and how to <a href="https://awmanoj.github.io/tech/2016/09/03/using-consul-watch-and-git/">configure for alerts on key value changes</a>.</p>
+
+<p><a href="https://www.opsgenie.com/">Opsgenie</a> is a must-have tool for <a href="https://landing.google.com/sre/interview/ben-treynor.html">SRE team</a> of any company beyond a certain scale. It enables alerts on some events (services down for example) via email, SMS, mobile push and even phone calls (so this is the enabler for dreaded pager service).</p>
+
+<p>At my company we use opsgenie and SRE team is on a constant roster - so on a rotation basis different engineers are on-call.</p>
+
+<p>There was a request to integrate service health on consul to opsgenie. Quick search over internet revealed that there is a solution called <a href="https://github.com/AcalephStorage/consul-alerts">consul-alerts</a> which is also the official <a href="https://www.opsgenie.com/docs/integrations/consul-integration">recommendation from opsgenie</a>.</p>
+
+<p>After installing it and trying to figure out - to be frank - I couldn’t comprehend it well (couldn’t get it deliver notifications successfully rather). So I thought, let me get to first principles and use the native <code>consul watch</code> command and some <code>bash</code> to do the simple job (isn’t KISS something never to be forgotten?) and came up with this simple(st possible) script which does the job well. This script is invoked from an <code>upstart</code> script (ubuntu 14.04) which takes care of re-running it if it gets killed somehow.</p>
+
+<figure class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="c">#!/bin/bash </span>
+
+<span class="nv">OLD_SERVICES_CRITICAL</span><span class="o">=</span>
+<span class="k">while</span> <span class="o">[</span> <span class="m">1</span> <span class="o">]</span><span class="p">;</span> <span class="k">do</span> 
+  rm -f /tmp/consul/services.txt
+  consul-template -consul &lt;___CONSUL_SERVICE_IP_HERE____&gt;:8500 -template<span class="o">=</span><span class="s2">&quot;/tmp/consul/services.alert.ctmpl:/tmp/consul/services.txt&quot;</span> -once
+  <span class="nv">SERVICES_CRITICAL</span><span class="o">=</span><span class="sb">`</span>cat /tmp/consul/services.txt <span class="p">|</span> grep -i critical <span class="p">|</span> awk <span class="s1">&#39;{print &quot;[&quot;$1&quot; &quot;$2&quot;]&quot;}&#39;</span><span class="sb">`</span>
+
+  <span class="k">if</span> <span class="o">[</span> ! -z <span class="s2">&quot;$OLD_SERVICES_CRITICAL&quot;</span> <span class="o">]</span> <span class="o">&amp;&amp;</span> <span class="o">[</span> -z <span class="s2">&quot;$SERVICES_CRITICAL&quot;</span> <span class="o">]</span><span class="p">;</span> 
+    <span class="nv">OLD_SERVICES_CRITICAL</span><span class="o">=</span><span class="s2">&quot;&quot;</span>
+  <span class="k">fi</span>
+
+  <span class="k">if</span> <span class="o">[</span> ! -z <span class="s2">&quot;$SERVICES_CRITICAL&quot;</span> <span class="o">]</span> <span class="o">&amp;&amp;</span> <span class="o">[</span> <span class="nv">$SERVICES_CRITICAL</span> -ne <span class="nv">$OLD_SERVICES_CRITICAL</span> <span class="o">]</span><span class="p">;</span> <span class="k">then</span>
+    curl -XPOST <span class="s1">&#39;https://api.opsgenie.com/v1/json/alert&#39;</span> -d<span class="s2">&quot;{</span>
+<span class="s2">      \&quot;apiKey\&quot;: \&quot;______YOUR_OPSGENIE_KEY_HERE______\&quot;, </span>
+<span class="s2">      \&quot;message\&quot;: \&quot;Services down: $SERVICES_CRITICAL.\&quot;,</span>
+<span class="s2">      \&quot;teams\&quot;: [\&quot;______YOUR_SRE_TEAM_NAME_HERE_____\&quot;]</span>
+<span class="s2">    }&quot;</span>
+    
+    <span class="c"># Add an alert to Slack.</span>
+    <span class="c">#... </span>
+
+    <span class="c"># Add an alert to Mattermost.</span>
+    <span class="c">#... </span>
+
+    <span class="nv">OLD_SERVICES_CRITICAL</span><span class="o">=</span><span class="nv">$SERVICES_CRITICAL</span>
+  <span class="k">fi</span>
+
+  <span class="c">## every 10 seconds</span>
+  sleep 10
+<span class="k">done</span></code></pre></figure>
+
+<p><code>service.alert.ctmpl</code> is simple - it lists down all service names, their IP, their port and current status (passing, warning, critical etc.):</p>
+
+<figure class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="o">{{</span> range services <span class="o">}}{{</span> range service .Name <span class="s2">&quot;any&quot;</span> <span class="o">}}</span>
+<span class="o">{{</span>.Name<span class="o">}}</span> <span class="o">{{</span>.Address<span class="o">}}</span> <span class="o">{{</span>.Port<span class="o">}}</span> <span class="o">{{</span>.Status<span class="o">}}</span>
+<span class="o">{{</span>end<span class="o">}}{{</span> end <span class="o">}}</span></code></pre></figure>
+
+<p>It took less than 5 minutes to get this running.</p>
+
+</div>
+
+<div class="related">
+  <h2>Related Posts</h2>
+  <ul class="related-posts">
+    
+        <p>
+          <a href="/tech/2016/12/16/keep-alive-http-requests-in-golang/">
+            Keep-Alive in http requests in golang
+          </a>
+          <small>16 Dec 2016</small>
+        </p>
+    
+        <p>
+          <a href="/tech/2016/12/12/simulation-chaos-game-go/">
+            Simulation of chaos game in go
+          </a>
+          <small>12 Dec 2016</small>
+        </p>
+    
+        <p>
+          <a href="/tech/2016/11/30/performing-concurrency-safe/">
+            Performing concurrency-safe DB updates in postgres 9.4+ using 'repeatable read' isolation level
+          </a>
+          <small>30 Nov 2016</small>
+        </p>
+    
+  </ul>
+</div>
+
+    </div>
+
+  </body>
+</html>

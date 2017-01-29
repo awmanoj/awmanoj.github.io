@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en-us">
+
+  <head>
+  <link href="http://gmpg.org/xfn/11" rel="profile">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+
+  <!-- Enable responsiveness on mobile devices-->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+
+  <title>
+    
+      Using Boltdb as a fast, persistent key value store &middot; Manoj Awasthi
+    
+  </title>
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="/public/css/poole.css">
+  <link rel="stylesheet" href="/public/css/syntax.css">
+  <link rel="stylesheet" href="/public/css/hyde.css">
+  <link rel="stylesheet" href="http://fonts.googleapis.com/css?family=PT+Sans:400,400italic,700|Abril+Fatface">
+
+  <!-- Icons -->
+  <link rel="apple-touch-icon-precomposed" sizes="144x144" href="/public/apple-touch-icon-144-precomposed.png">
+                                 <link rel="shortcut icon" href="/public/favicon.ico">
+
+  <!-- RSS -->
+  <link rel="alternate" type="application/rss+xml" title="RSS" href="/atom.xml">
+  
+</head>
+
+
+  <body>
+
+    <div class="sidebar">
+  <div class="container sidebar-sticky">
+    <div class="sidebar-about">
+      <h1>
+        <a href="/">
+          Manoj Awasthi
+        </a>
+      </h1>
+      <p class="lead">Autodidact.</p>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a class="sidebar-nav-item" href="/">Home</a>
+
+      
+
+      
+      
+        
+          
+        
+      
+        
+          
+            <a class="sidebar-nav-item" href="/about/">About</a>
+          
+        
+      
+        
+      
+        
+          
+        
+      
+        
+          
+        
+      
+
+      <a class="sidebar-nav-item" href="https://github.com/awmanoj">GitHub projects</a>
+	  <a href="http://feeds.feedburner.com/ManojAwasthi" title="Subscribe to my feed" rel="alternate" type="application/rss+xml"><img src="//feedburner.google.com/fb/images/pub/feed-icon32x32.png" alt="" style="border:0"/></a><a href="http://feeds.feedburner.com/ManojAwasthi" title="Subscribe to my feed" rel="alternate" type="application/rss+xml">Subscribe in a reader</a>
+
+<!-- 
+	  <a href="https://twitter.com/awmanoj" class="twitter-follow-button" data-show-count="false" data-lang="hi">@awmanoj को फ़ॉलो करें</a> <script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+'://platform.twitter.com/widgets.js';fjs.parentNode.insertBefore(js,fjs);}}(document, 'script', 'twitter-wjs');</script>
+
+-->
+	
+    </nav>
+
+
+    <p>&copy; 2016. All rights reserved.</p>
+  </div>
+</div>
+
+
+    <div class="content container">
+      <div class="post">
+  <h1 class="post-title">Using Boltdb as a fast, persistent key value store</h1>
+  <span class="post-date">03 Aug 2016</span>
+  <hr />
+
+<p><em>Originally posted on <a href="http://tech.tokopedia.com/blog/using-boltdb-as-a-fast-persistent-kv-store/">Tokopedia Tech Blog</a></em></p>
+<hr />
+
+<p>Recently, we at <a href="https://www.tokopedia.com/">Tokopedia</a> rearchitected a <a href="https://golang.org/">golang</a> microservice which maps an Image (as in picture, photo, ..) ID to the fully qualified server name that hosts the image.</p>
+
+<h3 id="a-bit-of-context-is-always-good">A bit of context is always good..</h3>
+
+<p>Historically, we stored images and served images from multiple servers for reasons of scale. The mapping of which image is located on which server was in mongodb. And there was a layer of caching on top of it in redis, because mongo didn’t scale very well for the workload.</p>
+
+<p>Gradually, we moved stuff to s3, which means all images uploaded from that point onwards could now be served from a single server, and no such mapping was required. However, old images were still being served in the same way, and they needed the mapping. The difference was, our database was now read only and fixed size.</p>
+
+<p>We still occasionally suffered with memory spikes and service killed by linux oom-killer leading to both latency and downtimes.</p>
+
+<h3 id="search-for-alternative">Search for alternative..</h3>
+
+<p>Requirements for the service:</p>
+
+<ul>
+  <li>Persistent storage</li>
+  <li>Fast retrieval (tens of thousand QPS)</li>
+  <li><code>Read only</code> usage</li>
+</ul>
+
+<p>Since our requirement is also “read-heavy” usage on a fixed size database (infact, it is read-only usage) we knew we need a lightweight embedded DB solution. There are multiple solutions that exist for this problem but we zeroed on <a href="https://github.com/boltdb/bolt">Boltdb</a>.</p>
+
+<h3 id="why-boltdb">Why Boltdb?</h3>
+<ul>
+  <li>written in <a href="https://golang.org/">go</a> and hence fits with rest of the stack well.</li>
+  <li>compact, fast (it based on <a href="https://symas.com/products/lightning-memory-mapped-database/">LMDB</a>. Both use a B+tree, have ACID semantics with fully serializable transactions, and support lock-free MVCC using a single writer and multiple readers.</li>
+  <li>LMDB heavily focuses on raw performance while Bolt has focused on simplicity and ease of use.</li>
+  <li>fits better for a <code>read heavy</code> usage.</li>
+</ul>
+
+<h3 id="how-to-use">How to use?</h3>
+
+<p>In pure sense, <code>boltdb</code> is not really a database but simply a memory mapped file but it provides ACID semantics as provided by databases so calling it a DB is not misnomer. It comes as a library so installation is as simple as <code>importing</code> a go package.</p>
+
+<p>You can go through the detailed <a href="https://github.com/boltdb/bolt">README</a> and <a href="https://godoc.org/github.com/boltdb/bolt">GoDoc</a> to get started.</p>
+
+<p>Opening database is as simple as:</p>
+
+<figure class="highlight"><pre><code class="language-go" data-lang="go"><span class="nx">db</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">bolt</span><span class="p">.</span><span class="nx">Open</span><span class="p">(</span><span class="s">&quot;my.db&quot;</span><span class="p">,</span> <span class="mo">0666</span><span class="p">,</span> <span class="o">&amp;</span><span class="nx">bolt</span><span class="p">.</span><span class="nx">Options</span><span class="p">{</span><span class="nx">ReadOnly</span><span class="p">:</span> <span class="kc">true</span><span class="p">})</span>
+<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+    <span class="nx">log</span><span class="p">.</span><span class="nx">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>Add a key value (<code>answer</code> = <code>42</code>):</p>
+
+<figure class="highlight"><pre><code class="language-go" data-lang="go"><span class="nx">db</span><span class="p">.</span><span class="nx">Update</span><span class="p">(</span><span class="kd">func</span><span class="p">(</span><span class="nx">tx</span> <span class="o">*</span><span class="nx">bolt</span><span class="p">.</span><span class="nx">Tx</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+    <span class="nx">b</span> <span class="o">:=</span> <span class="nx">tx</span><span class="p">.</span><span class="nx">Bucket</span><span class="p">([]</span><span class="nb">byte</span><span class="p">(</span><span class="s">&quot;MyBucket&quot;</span><span class="p">))</span>
+    <span class="nx">err</span> <span class="o">:=</span> <span class="nx">b</span><span class="p">.</span><span class="nx">Put</span><span class="p">([]</span><span class="nb">byte</span><span class="p">(</span><span class="s">&quot;answer&quot;</span><span class="p">),</span> <span class="p">[]</span><span class="nb">byte</span><span class="p">(</span><span class="s">&quot;42&quot;</span><span class="p">))</span>
+    <span class="k">return</span> <span class="nx">err</span>
+<span class="p">})</span></code></pre></figure>
+
+<p>Fetch a value by key:</p>
+
+<figure class="highlight"><pre><code class="language-go" data-lang="go"><span class="nx">db</span><span class="p">.</span><span class="nx">View</span><span class="p">(</span><span class="kd">func</span><span class="p">(</span><span class="nx">tx</span> <span class="o">*</span><span class="nx">bolt</span><span class="p">.</span><span class="nx">Tx</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+    <span class="nx">b</span> <span class="o">:=</span> <span class="nx">tx</span><span class="p">.</span><span class="nx">Bucket</span><span class="p">([]</span><span class="nb">byte</span><span class="p">(</span><span class="s">&quot;MyBucket&quot;</span><span class="p">))</span>
+    <span class="nx">v</span> <span class="o">:=</span> <span class="nx">b</span><span class="p">.</span><span class="nx">Get</span><span class="p">([]</span><span class="nb">byte</span><span class="p">(</span><span class="s">&quot;answer&quot;</span><span class="p">))</span>
+    <span class="nx">fmt</span><span class="p">.</span><span class="nx">Printf</span><span class="p">(</span><span class="s">&quot;The answer is: %s\n&quot;</span><span class="p">,</span> <span class="nx">v</span><span class="p">)</span>
+    <span class="k">return</span> <span class="kc">nil</span>
+<span class="p">})</span></code></pre></figure>
+
+<h3 id="command-line-utility---bolt">Command line utility - <code>bolt</code></h3>
+
+<p>Boltdb comes with a command line utility which can be used to inspect the correctness and statistics of a BoltDB file.</p>
+
+<h3 id="if-life-was-that-easy-">If life was that easy.. !</h3>
+
+<p>We imported all <code>mongodb</code> data using <code>mongo-export</code> utility. It was <code>~4 GB</code> in size. We exported it to <code>boltdb</code> using an export tool we wrote in <code>golang</code>. The output file was a single <code>bolt.db</code> file with size <code>~ 13 GB</code>. This size increase was expected due to the internal data structure being used by <code>boltdb</code>.</p>
+
+<p>What was not expected (or rather <strong>we</strong> did not expect it) was that export tool became exponentially slower as the <code>bolt.db</code> file grew larger. We estimated that each export would take days in this manner (in case we need to).</p>
+
+<p>To solve this problem, we decided to use - you guessed it right - <code>sharding</code>.</p>
+
+<ul>
+  <li>We broke down the initial <code>mongodb</code> dump into <code>N</code> files (<a href="http://math.stackexchange.com/questions/183909/why-choose-a-prime-number-as-the-number-of-slots-for-hashing-function-that-uses">choosing <code>N</code></a>).</li>
+  <li>We export each of those files into a boltdb file. We now have <code>N</code> small boltdb files.</li>
+  <li>When a query arrives for a key <code>K</code>, we hash the key into a bucket between <code>0</code> and <code>N-1</code>. This hash value tells us in <code>O(1)</code> time which boltdb to query on.</li>
+  <li>Query itself is fast due to storage structure and you’re done!</li>
+</ul>
+
+<p>This helped us export the data and generate BoltDB files in less than an hour time.</p>
+
+<p>Following is the output of <code>free -m</code> on one of the <code>3</code> servers we use:</p>
+
+<p><img src="/public/assets/img/free-m.png" alt="free -m" /></p>
+
+<p>and this is the snippet from <code>top</code> on the same server:</p>
+
+<p><img src="/public/assets/img/virtual-mem.png" alt="top" /></p>
+
+<p>Note that the <code>VIRTUAL</code> memory is exactly the total size of boltdb. Also note from above two outputs that it is not limited by physical RAM availability.</p>
+
+<h3 id="caveats--limitations">Caveats &amp; Limitations</h3>
+
+<ul>
+  <li>Bolt is good for read intensive workloads. Random writes can be slow especially as the database (file) size grows.</li>
+  <li>Bolt uses a B+tree internally so there can be a lot of random page access. SSDs provide a significant performance boost over spinning disks.</li>
+  <li>Bolt can handle databases much larger than the available physical RAM, provided its memory-map fits in the process virtual address space. It may be problematic on 32-bits systems.</li>
+  <li>The data structures in the Bolt database are memory mapped so the data file will be endian specific. This means that you cannot copy a Bolt file from a little endian machine to a big endian machine and have it work. For most users this is not a concern since most modern CPUs are little endian.</li>
+</ul>
+
+<h3 id="result">Result</h3>
+
+<p>We successfully migrated to using <code>boltdb</code> for our service. The service handles many thousands of QPS, is not limited by physical RAM on the machine and is working well.</p>
+
+<p><code>BoltDB</code> looks awesome. Do give it a try if this fits your use-case.</p>
+
+
+</div>
+
+<div class="related">
+  <h2>Related Posts</h2>
+  <ul class="related-posts">
+    
+        <p>
+          <a href="/tech/2016/12/16/keep-alive-http-requests-in-golang/">
+            Keep-Alive in http requests in golang
+          </a>
+          <small>16 Dec 2016</small>
+        </p>
+    
+        <p>
+          <a href="/tech/2016/12/12/simulation-chaos-game-go/">
+            Simulation of chaos game in go
+          </a>
+          <small>12 Dec 2016</small>
+        </p>
+    
+        <p>
+          <a href="/tech/2016/11/30/performing-concurrency-safe/">
+            Performing concurrency-safe DB updates in postgres 9.4+ using 'repeatable read' isolation level
+          </a>
+          <small>30 Nov 2016</small>
+        </p>
+    
+  </ul>
+</div>
+
+    </div>
+
+  </body>
+</html>

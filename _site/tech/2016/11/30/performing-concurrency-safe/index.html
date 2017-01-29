@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en-us">
+
+  <head>
+  <link href="http://gmpg.org/xfn/11" rel="profile">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+
+  <!-- Enable responsiveness on mobile devices-->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+
+  <title>
+    
+      Performing concurrency-safe DB updates in postgres 9.4+ using 'repeatable read' isolation level &middot; Manoj Awasthi
+    
+  </title>
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="/public/css/poole.css">
+  <link rel="stylesheet" href="/public/css/syntax.css">
+  <link rel="stylesheet" href="/public/css/hyde.css">
+  <link rel="stylesheet" href="http://fonts.googleapis.com/css?family=PT+Sans:400,400italic,700|Abril+Fatface">
+
+  <!-- Icons -->
+  <link rel="apple-touch-icon-precomposed" sizes="144x144" href="/public/apple-touch-icon-144-precomposed.png">
+                                 <link rel="shortcut icon" href="/public/favicon.ico">
+
+  <!-- RSS -->
+  <link rel="alternate" type="application/rss+xml" title="RSS" href="/atom.xml">
+  
+</head>
+
+
+  <body>
+
+    <div class="sidebar">
+  <div class="container sidebar-sticky">
+    <div class="sidebar-about">
+      <h1>
+        <a href="/">
+          Manoj Awasthi
+        </a>
+      </h1>
+      <p class="lead">Autodidact.</p>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a class="sidebar-nav-item" href="/">Home</a>
+
+      
+
+      
+      
+        
+          
+        
+      
+        
+          
+            <a class="sidebar-nav-item" href="/about/">About</a>
+          
+        
+      
+        
+      
+        
+          
+        
+      
+        
+          
+        
+      
+
+      <a class="sidebar-nav-item" href="https://github.com/awmanoj">GitHub projects</a>
+	  <a href="http://feeds.feedburner.com/ManojAwasthi" title="Subscribe to my feed" rel="alternate" type="application/rss+xml"><img src="//feedburner.google.com/fb/images/pub/feed-icon32x32.png" alt="" style="border:0"/></a><a href="http://feeds.feedburner.com/ManojAwasthi" title="Subscribe to my feed" rel="alternate" type="application/rss+xml">Subscribe in a reader</a>
+
+<!-- 
+	  <a href="https://twitter.com/awmanoj" class="twitter-follow-button" data-show-count="false" data-lang="hi">@awmanoj को फ़ॉलो करें</a> <script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+'://platform.twitter.com/widgets.js';fjs.parentNode.insertBefore(js,fjs);}}(document, 'script', 'twitter-wjs');</script>
+
+-->
+	
+    </nav>
+
+
+    <p>&copy; 2016. All rights reserved.</p>
+  </div>
+</div>
+
+
+    <div class="content container">
+      <div class="post">
+  <h1 class="post-title">Performing concurrency-safe DB updates in postgres 9.4+ using 'repeatable read' isolation level</h1>
+  <span class="post-date">30 Nov 2016</span>
+  <p>Let’s accept it for the nth time again, writing concurrent programs correctly is hard.</p>
+
+<p>In this post, I discuss about a specific problem while concurrently writing to databases that I encountered recently, how to fix it and I am using that encounter to discuss a general idea about concurrent updates in databases.</p>
+
+<h3 id="concurrent---whats-that">Concurrent - What’s that?</h3>
+
+<p>It’s sometime good to understand the antithesis to understand something. The opposite of concurrent would be sequential. A sequential program is a program with a single thread of execution so the order of events (instructions) executed in the program are predictable and are as per the program logic. A concurrent program is a program with more than one threads of execution and so the order of events (instructions) executed in the program are not really predictable — order of events within one thread remains predictable but whether an event <code>x</code> in thread A will happen before or after an event <code>y</code> in thread B or they will be simultaneous is generally unknown.</p>
+
+<p>So a good “informal” definition (quoting from “<a href="http://www.amazon.in/Go-Programming-Language-Alan-Donovan/dp/9332569711/ref=sr_1_1?ie=UTF8&amp;qid=1480680008&amp;sr=8-1&amp;keywords=the+go+programming+language">The Go Programming Language</a>”):</p>
+
+<blockquote>
+  <p>When we cannot confidently say that one event happens before the other then the events x and y are concurrent.</p>
+</blockquote>
+
+<h3 id="concurrency-safe-programs">Concurrency-safe programs</h3>
+
+<p>A function is concurrency-safe if it continues to work correctly even when called concurrently (that is from two or more threads of execution without needing any additional synchronisation code).</p>
+
+<p>The analogy can be extended to “programs” when programs are accessing a shared resource for writing e.g. databases. If two or more than two programs are executing concurrently (on one or more than one servers) and are accessing a shared resource for writing then too the definition holds true that programs are concurrency-safe if they keep performing their updates correctly. This is the topic of this post.</p>
+
+<h3 id="example-program">Example program</h3>
+
+<p>Let’s create a toy program for demonstration which does some updates to a local postgres instance. I will be using <code>golang</code> for implementing this but idea is language agnostic.</p>
+
+<p>We will use a test table in a test database (both table and database are aptly named ‘test’). Following is the schema of the table:</p>
+
+<pre><code>test=# \d+ test
+                         Table "public.test"
+ Column |  Type   | Modifiers | Storage | Stats target | Description 
+--------+---------+-----------+---------+--------------+-------------
+ id     | integer |           | plain   |              | 
+ value  | integer |           | plain   |              | 
+</code></pre>
+
+<p>the example code:</p>
+
+<pre><code>package main
+
+import (
+  "database/sql"
+  "github.com/jmoiron/sqlx"
+  _ "github.com/lib/pq"
+  “log"
+)
+
+func main() {
+  for i := 0; i &lt; 750; i++ {
+    err := dofn()
+	if err != nil {
+		log.Println("err", err)
+		continue
+	}
+  }
+}
+
+</code></pre>
+
+<p>In this program, we are simply calling the function <code>dofn()</code>, 750 times. In each call, <code>dofn</code> opens a connection to database ‘test’, reads a value from the table ‘test’ and then either writes (<code>INSERT</code>) the value 1 into table if it does not exist or increments the value (<code>UPDATE</code>) in the table.</p>
+
+<p>Following is the body for <code>dofn</code> implementation:</p>
+
+<pre><code>func dofn() error {
+	db, err := sqlx.Open("postgres", "host=127.0.0.1 port=5432 user=postgres password=postgres dbname=test sslmode=disable")
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer tx.Rollback()
+
+	var isExists bool = true
+	var id int
+	var value int
+	err = tx.QueryRow("SELECT * FROM test WHERE id = 1;").Scan(&amp;id, &amp;value)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			isExists = false
+		} else {
+			return err
+		}
+	}
+
+	if !isExists {
+		_, err := tx.Exec("INSERT INTO test VALUES(1, 1)")
+		if err != nil {
+			return err
+		}
+	} else {
+		value = value + 1
+		_, err := tx.Exec("UPDATE test SET value = $1 WHERE id = 1", value)
+		if err != nil {
+			return err
+		}
+	}
+
+	tx.Commit()
+	return nil
+}
+</code></pre>
+
+<p>Lets open the <code>psql</code> console and delete all rows in the table prior to running this example.</p>
+
+<pre><code>test=# DELETE FROM test; 
+DELETE 0
+test=# SELECT * FROM test; 
+ id | value 
+----+-------
+(0 rows)
+
+</code></pre>
+
+<p>Now, we compile and run this example, as expected we will get the value updated to 750. This was the sequential run.</p>
+
+<pre><code>parallels@ubuntu:~/gocode/src/bb/seq$ ./seq 
+parallels@ubuntu:~/gocode/src/bb/seq$ sudo -u postgres psql 
+psql (9.4.10)
+Type "help" for help.
+
+postgres=# \c test
+You are now connected to database "test" as user "postgres".
+test=# SELECT * FROM test; 
+ id | value 
+----+-------
+  1 |   750
+(1 row)
+</code></pre>
+
+<h3 id="let-make-it-a-bit-concurrent">Let make it a bit concurrent..</h3>
+
+<p>Now, let’s try to modify the program to do execution with the same <code>dofn</code> but now executing the updates concurrently:</p>
+
+<pre><code>package main
+
+import	(
+	"log"
+	"database/sql"
+	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq"
+)
+
+func main() {
+	for i := 0; i &lt; 3; i++ {
+		go launchDoFn() // async launch goroutines (similar to threads) 
+	}
+
+	select {}
+}
+
+func launchDoFn() {
+	for i := 0; i &lt; 250; i++ {
+		err := dofn()
+		if err != nil {
+			log.Println("err", err)
+			continue
+		}
+	}	
+}
+</code></pre>
+
+<p>As you see we launch three goroutines - each of which start sequential updates of 250 increments (including one insert). There are basically three concurrent threads you can assume which are updating DB. So let’s compile and run and see the result.</p>
+
+<p>First, we will again clear the table so that it is empty again:</p>
+
+<pre><code>postgres=# \c test
+You are now connected to database "test" as user "postgres".
+test=# DELETE FROM test; 
+DELETE 1
+test=# SELECT * FROM test; 
+ id | value 
+----+-------
+(0 rows)
+</code></pre>
+
+<p>Now run it and check the result:</p>
+
+<pre><code>parallels@ubuntu:~/gocode/src/bb/conc$ ./conc 
+2016/12/01 19:06:20 err INSERT pq: duplicate key value violates unique constraint "test_pkey" pq: duplicate key value violates unique constraint "test_pkey"
+2016/12/01 19:06:20 err pq: duplicate key value violates unique constraint "test_pkey"
+parallels@ubuntu:~/gocode/src/bb/conc$ sudo -u postgres psql 
+psql (9.4.10)
+Type "help" for help.
+
+postgres=# \c test
+You are now connected to database "test" as user "postgres".
+test=# SELECT * FROM test; 
+ id | value 
+----+-------
+  1 |   464
+(1 row)
+</code></pre>
+
+<p>Note: your output may be different - since it is unpredictable but in all likelihood it would be incorrect i.e. not equal to 750.</p>
+
+<h3 id="so-what-happened">So what happened?</h3>
+
+<p>Well, something like this:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Time</th>
+      <th>Thread A</th>
+      <th>Thread B</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>time t0</td>
+      <td>reads N = 5</td>
+      <td>reads N = 5</td>
+    </tr>
+    <tr>
+      <td>time t1</td>
+      <td>increments N = N + 1 = 6</td>
+      <td>increments N = N + 1 = 6</td>
+    </tr>
+    <tr>
+      <td>time t2</td>
+      <td>writes into DB N = 6</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>time t3</td>
+      <td> </td>
+      <td>writes into DB N = 6</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>So instead of the final value = 7 we get the value = 6. This is happening multiple (unpredictable number of) times and hence causing the mismatch between expected and actual results.</p>
+
+<p>Now, we will discuss how to fix this.</p>
+
+<h3 id="a-primer-on-isolation-levels">A primer on isolation levels</h3>
+
+<p>Since this is a common problem, SQL standard defines a way to solve this. Basically there are four levels of transaction isolation that are defined. As mentioned on <a href="https://www.postgresql.org/docs/9.1/static/transaction-iso.html">postgres documentation page</a>:</p>
+
+<p>The most strict (isolation level) is Serializable, which is defined by the standard in a paragraph which says that any concurrent execution of a set of Serializable transactions is guaranteed to produce the same effect as running them one at a time in some order. The other three levels are defined in terms of phenomena, resulting from interaction between concurrent transactions, which must not occur at each level.</p>
+
+<ul>
+  <li>
+    <p>dirty read: A transaction reads data written by a concurrent uncommitted transaction.</p>
+  </li>
+  <li>
+    <p>nonrepeatable read: A transaction re-reads data it has previously read and finds that data has been modified by another transaction (that committed since the initial read).</p>
+  </li>
+  <li>
+    <p>phantom read: A transaction re-executes a query returning a set of rows that satisfy a search condition and finds that the set of rows satisfying the condition has changed due to another recently-committed transaction.</p>
+  </li>
+</ul>
+
+<table>
+  <thead>
+    <tr>
+      <th>Isolation Level</th>
+      <th>Dirty Read</th>
+      <th style="text-align: center">Non repeatable Read</th>
+      <th style="text-align: right">Phantom Read</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Read Uncommitted</td>
+      <td>Possible</td>
+      <td style="text-align: center">Possible</td>
+      <td style="text-align: right">Possible</td>
+    </tr>
+    <tr>
+      <td>Read committed</td>
+      <td>Not possible</td>
+      <td style="text-align: center">Possible</td>
+      <td style="text-align: right">Possible</td>
+    </tr>
+    <tr>
+      <td>Repeatable Read</td>
+      <td>Not Possible</td>
+      <td style="text-align: center">Not Possible</td>
+      <td style="text-align: right">Possible</td>
+    </tr>
+    <tr>
+      <td>Serialisable</td>
+      <td>Not Possible</td>
+      <td style="text-align: center">Not Possible</td>
+      <td style="text-align: right">Not Possible</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>In PostgreSQL, you can request any of the four standard transaction isolation levels. But internally, there are only three distinct isolation levels, which correspond to the levels Read Committed, Repeatable Read, and Serializable.</p>
+
+<p>Also,</p>
+
+<blockquote>
+  <p>.. phantom reads are not possible in the PostgreSQL implementation of Repeatable Read, so the actual isolation level might be stricter than what you select.</p>
+</blockquote>
+
+<p>This is permitted by the SQL standard: the four isolation levels only define which phenomena must not happen, they do not define which phenomena must happen.</p>
+
+<h3 id="quick-take-away">Quick take away!</h3>
+
+<ul>
+  <li>When we set the isolation level to serializable then behind the scene all concurrent updates to a database are performed in serial fashion i.e. one after the other. This clearly translates into bad performance.</li>
+  <li>When we set the isolation level to Repeatable read then behind the scene, database makes sure that of all transactions which are currently executing on a record read in “past” and trying to update the record (pay attention here: say A, B are executing, both read record #3 in table (i.e. did a ‘select’), then try writing into database updated values of record #3) - it is guaranteed that only one of them will succeed and others will fail with “could not serialize access due to concurrent update” error. This is better performant than serializable, fixes the problem of correctness but means that you have to repeat the transactions which fail.</li>
+  <li>Read committed is the default mode of postgres. It is safe when you are concurrently reading but not safe for concurrent updates.</li>
+</ul>
+
+<h3 id="fixing-using-repeatable-read-isolation-level">Fixing using repeatable read isolation level</h3>
+
+<p>As mentioned above, in postgres repeatable read is as strict as serialisable and is more performant than serialisable. So, we will use this isolation level to fix the problem we faced while running concurrent updates.</p>
+
+<p>We re-write our code for dofn():</p>
+
+<pre><code>func dofn() error {
+	db, err := sqlx.Open("postgres", "host=127.0.0.1 port=5432 user=postgres password=postgres dbname=tokopedia-advertise-aws sslmode=disable")
+	if err != nil {
+		log.Println("err", err)
+		return err
+	}
+
+	defer db.Close()
+
+	var has_committed bool = false
+
+	for ok := true; ok; ok = !has_committed {
+		tx, err := db.Begin()
+   		if err != nil {
+       		log.Println("err", "error begining transaction in postgres", err)
+       		return err 
+   		}
+
+		defer tx.Rollback()
+ 		_, err = tx.Exec(`set transaction isolation level repeatable read`)   // &lt;=== SET ISOLATION LEVEL
+		if err != nil {
+   			return err
+		}
+
+		var isExists bool = true
+		var id int 
+		var value int
+		err = tx.QueryRow("select * from test1 where id = 1;").Scan(&amp;id, &amp;value)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				isExists = false
+			} else {
+				return err
+			}
+		}
+
+		if !isExists {
+			_, err := tx.Exec("INSERT INTO test VALUES(1, 1)")
+			if err != nil {
+           		 return err
+            }
+		} else {
+			value = value + 1
+			_, err := tx.Exec("UPDATE test set value = $1 where id = 1", value)
+			if err != nil {
+			if strings.Contains(err.Error(), "could not serialize access due to concurrent update") {
+                continue
+            } else {
+            	return err
+            }
+		}
+	}
+
+	tx.Commit()
+	has_committed = true
+	}
+	return nil
+}
+</code></pre>
+
+<p>Let’s again empty the table, compile and run this and see results:</p>
+
+<pre><code>test=# DELETE FROM test; 
+DELETE 1
+test=# SELECT * FROM test; 
+ id | value 
+----+-------
+(0 rows)
+</code></pre>
+<pre><code>parallels@ubuntu:~/gocode/src/bb/conc$ ./conc
+2016/12/01 19:28:06 err UPDATE pq: could not serialize access due to concurrent update pq: could not serialize access due to concurrent update
+2016/12/01 19:28:06 err UPDATE pq: could not serialize access due to concurrent update pq: could not serialize access due to concurrent update
+...
+...
+... -- many errors and retries --- 
+... 
+parallels@ubuntu:~/gocode/src/bb/conc$ sudo -u postgres psql 
+psql (9.4.10)
+Type "help" for help.
+
+postgres=# \c test
+You are now connected to database "test" as user "postgres".
+test=# SELECT * FROM test; 
+ id | value 
+----+-------
+  1 |   750
+(1 row)
+</code></pre>
+
+<p>Hence, we see the issue of correctness is resolved and with this change our program is concurrency safe wrt database update.</p>
+
+<p>The post is longish - thanks for reading it through.</p>
+
+
+</div>
+
+<div class="related">
+  <h2>Related Posts</h2>
+  <ul class="related-posts">
+    
+        <p>
+          <a href="/tech/2016/12/16/keep-alive-http-requests-in-golang/">
+            Keep-Alive in http requests in golang
+          </a>
+          <small>16 Dec 2016</small>
+        </p>
+    
+        <p>
+          <a href="/tech/2016/12/12/simulation-chaos-game-go/">
+            Simulation of chaos game in go
+          </a>
+          <small>12 Dec 2016</small>
+        </p>
+    
+        <p>
+          <a href="/tech/2016/09/24/runscope-integration-with-mattermost/">
+            Runscope Integration with Mattermost
+          </a>
+          <small>24 Sep 2016</small>
+        </p>
+    
+  </ul>
+</div>
+
+    </div>
+
+  </body>
+</html>
