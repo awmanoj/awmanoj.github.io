@@ -25,4 +25,4 @@ Last year, I relocated to Jakarta. This meant I would not be able to get access 
 
 So other than the last two points, I think there are many benefits of switching to a digital book on a good reader.
 
-* This becomes particularly important since I come from India and English is not my first language. Additionally, I'm particularly weaker on Vocabulary. Handy access to exact detailed meaning of a word makes me understand the stuff more clearly and also helps building a better vocabulary.
+*This becomes particularly important since I come from India and English is not my first language. Additionally, I'm particularly weaker on Vocabulary. Handy access to exact detailed meaning of a word makes me understand the stuff more clearly and also helps building a better vocabulary.
