@@ -53,7 +53,7 @@ So, while some browsers like `Safari`, `Mozilla firefox` behave in the expected 
 
 ### Useful links: 
 
-*[https://trac.nginx.org/nginx/ticket/848](https://trac.nginx.org/nginx/ticket/848)
-*[https://forum.nginx.org/read.php?29,267026](https://forum.nginx.org/read.php?29,267026)
-*[https://bugs.chromium.org/p/chromium/issues/detail?id=546991](https://bugs.chromium.org/p/chromium/issues/detail?id=546991)
+* [https://trac.nginx.org/nginx/ticket/848](https://trac.nginx.org/nginx/ticket/848)
+* [https://forum.nginx.org/read.php?29,267026](https://forum.nginx.org/read.php?29,267026)
+* [https://bugs.chromium.org/p/chromium/issues/detail?id=546991](https://bugs.chromium.org/p/chromium/issues/detail?id=546991)
 
