@@ -13,9 +13,7 @@ We have one server (i.e. 1 IP) which serves multiple domains (websites). Yesterd
 
 A [couple](http://serverfault.com/questions/772901/421-misdirected-request-using-http-2-and-san-ssl) [of](https://bugs.chromium.org/p/chromium/issues/detail?id=546991) searches over the internet helped understand the problem a bit. This post is a summary.
 
-### 
-
-So, basically when you enable SSL (i.e. set `ssl_verify_client` to `optional`, `on` or `optional_no_ca` in `nginx`) and you serve more than one domains from the same server (i.e. 1 IP address) and one of the domains are using `http2` then HTTP/2 tries to reuse connections to `different` servers.  
+So, basically when you enable SSL (e.g. set `ssl_verify_client` to `optional`, `on` or `optional_no_ca` in `nginx`) and you serve more than one domains from the same server (i.e. 1 IP address) and one of the domains are using `http2` then HTTP/2 tries to reuse connections to `different` servers.  
 
 Let's first understand what protocol does and how servers and clients are expected to behave with respect to this. Following are snippets from [RFC 7540 (HTTP/2)](https://tools.ietf.org/html/rfc7540#section-9.1.1):
 
