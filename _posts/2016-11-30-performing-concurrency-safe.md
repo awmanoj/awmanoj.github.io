@@ -267,7 +267,7 @@ We re-write our code for dofn():
 
 ```
 func dofn() error {
-	db, err := sqlx.Open("postgres", "host=127.0.0.1 port=5432 user=postgres password=postgres dbname=tokopedia-advertise-aws sslmode=disable")
+	db, err := sqlx.Open("postgres", "host=127.0.0.1 port=5432 user=postgres password=postgres dbname=test sslmode=disable")
 	if err != nil {
 		log.Println("err", err)
 		return err
