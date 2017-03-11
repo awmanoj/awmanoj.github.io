@@ -9,7 +9,7 @@ Writing good software is an Art, albeit the one which can definitely be learnt. 
 
 Writing good error messages should not be an Art. (this is also the goal of this post!)
 
-<img src="/public/assets/img/421.png" />
+<img src="/public/assets/img/look.jpg" />
 
 Following are some general comments and suggestions on writing "good" error messages:
 
