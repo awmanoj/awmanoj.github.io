@@ -17,7 +17,9 @@ Following are some general comments and suggestions on writing "good" error mess
 
 ### Errors should explain the problem concisely and well
 
-Good error messages provide the proper error message that explains the reason well. Easiest way to do that is to include the error code (e.g. errno in C or err.Error() in golang) in the error message.
+Good error messages provide the proper error message that explain the reason well. Easiest way to do that is to include the error code (e.g. errno in C or err.Error() in golang) in the error message.
+
+Example: 
 
 Instead of: 
 
@@ -36,6 +38,8 @@ Use:
 Good error messages provide details of immediate context. In all likelihood, only one error scenario will hit at a time. So each log (however unimportant it may seem) should contain the context e.g. immediate variables related to error condition, exact error code, anything else that may be important etc. 
 
 TIP: while writing code, imagine if this error is hit then what information would you be immediately seeking without attaching debugger. That information should be logged. 
+
+Example: 
 
 Instead of: 
 
@@ -57,35 +61,37 @@ Judge: if you think you don’t need to act on an error in error log - either ma
 
 ### Errors must be logged in single line
 
-Don’t use multiline errors. Error logs should contain one (note, one!) error per line. This is to fully able to use UNIX commands over streaming (pipe).
+Don’t use multiline errors. Error logs should contain one (note, one!) error per line. This is to be able to fully use UNIX commands over streaming (pipe).
 
 ### Errors should be logged only at top level
 
 Good errors logs are logged at the highest level and hence there is usually only ONE error per occurrence. E.g. 
 
 ```
-	func DoStuff() {
-		… 
-		if err := DoStuffHelper(); err != nil {
-			log.Println(“err”, err)  // <= log the error since function itself not returning error
-			return
-		}
-		...
-	} 
-
-	func DoStuffHelper() error {
-		… 
-		if err := Stuff(); err != nil {
-			return err   // <= do not log the error since function returning an error. 
-					  // <= responsibility of logging error is of the caller
-		}
-		...
+func DoStuff() {
+	… 
+	if err := DoStuffHelper(); err != nil {
+		// log the error since function itself not returning error
+		log.Println(“err”, err)  
+		return
 	}
+	...
+} 
+
+func DoStuffHelper() error {
+	… 
+	if err := Stuff(); err != nil {
+		// do not log the error since function returning an error. 
+		// responsibility of logging error is of the caller
+		return err  
+	}
+	...
+}
 ```
 
 ### Errors should roll up in function calls
 
-If there are functions calling other functions and failure happens deep below then it is OK to add some error message at each function level (don't log - see above - but you can return more detailed error at each level). It is advisable that in such rollup we retain original error code: 
+If there are functions calling other functions and failure happens deep below then it is OK to add some additional error message explanation at each function level (don't log though - see above - just return more detailed error at each level). It is advisable that in such rollup we retain original error code: 
 
 ```
 func DoA() {
@@ -113,7 +119,7 @@ func DoC() error {
 
 ### Conclusion 
 
-Your error log is your friend in the often the darkest hours of your work life (problem in production, panic, downtime etc) so an investment in thinking through and writing error logs well can be significantly rewarding. 
+Your error log is your friend in bad times - often one of the darkest hours of your work life (problem in production, panic, downtime etc) so an investment in thinking through and writing error logs well will reap significant rewards in saved time and faster resolutions. 
 
 If you have more suggestions do [tweet to me](https://twitter.com/awmanoj).
 
