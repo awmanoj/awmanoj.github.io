@@ -24,13 +24,13 @@ Example:
 Instead of: 
 
 ```
-05/Mar/2017:12:08:54 +0700 err something bad happened. 
+05/Mar/2017:12:08:54 +0700 err database error. 
 ```
 
 Use: 
 
 ```
-05/Mar/2017:12:08:54 +0700 err something bad happened. error opening database postgres://a:b@host/maindb
+05/Mar/2017:12:08:54 +0700 err error opening database postgres://a:b@host/maindb
 ```
 
 ### Errors should provide immediate context 
