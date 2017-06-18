@@ -35,4 +35,4 @@ The value corresponding to the variable `$ssl_client_s_dn` is:
 
 This uniquely identifies the user who does a certain change e.g. `DELETE` a key. A simple, low cost change control system. :-) 
 
-You can read more about other variables related to SSL certificates which are supported in nginx.
+You can read more about [other variables related to SSL certificates](http://nginx.org/en/docs/http/ngx_http_ssl_module.html#var_ssl_client_cert) which are supported in nginx.
