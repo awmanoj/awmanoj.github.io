@@ -7,7 +7,7 @@ Hello, my name is Manoj Awasthi. I am a programmer in my thirties, an autodidact
 
 I tweet from [@awmanoj](https://twitter.com/awmanoj) and email from last_name dot first_name @gmail.com.
 
-I also blog at [this site](http://www.manojawasthi.com/), [this site](http://whatilearned2day.wordpress.com/) (older technical stuff) and [this site](http://whaticlickedtoday.wordpress.com/) (my attempt at photography).
+I also blog at [this site](https://awmanoj.blogspot.com/), [this site](http://whatilearned2day.wordpress.com/) (older technical stuff) and [this site](http://whaticlickedtoday.wordpress.com/) (my attempt at photography).
 
 I love reading books, learning new things, programming and believe in building useful things.
 
