@@ -7,19 +7,21 @@ categories: tech
 
 Sometime back, I wrote [on slow regular expressions in golang](https://awmanoj.github.io/tech/2016/09/08/on-slow-regular-expressions-golang/). Recently, I thought about experimenting with regular expressions and use Golang [benchmarking](https://dave.cheney.net/2013/06/30/how-to-write-benchmarks-in-go) to estimate their slowness. 
 
-Disclaimer: it’s not a generalisation (please read the previous post to understand the context of the claim). 
+Disclaimers: 
+
+* It’s not a generalisation (please [read the previous post](https://awmanoj.github.io/tech/2016/09/08/on-slow-regular-expressions-golang/) to understand the context of the claim). 
+* This post is NOT a comparison between golang regex performance and PCRE (or other language) performance. 
+* This post is meant only for a possible alternative in some of the cases where speed is important and less comprehensive checks still acceptable.
 
 ## Experiment 
 
 For the experiment, at hand was a problem to identify whether the connection string to redis followed a certain pattern. 
 
 ```
-120 // IsRedisConnectionStringType2 checks if connectionString is host:port format and
+120 // Check if connectionString is host:port format and 
 121 // not the tcp://user:pass@host:port/0?q=1 format.
-122 // Following are the types of connection strings which xuyu/goredis supports:
-123 //      Dial(&DialConfig{"tcp", "127.0.0.1:6379", 0, "", 10*time.Second, 10})
-124 //      DialURL("tcp://auth:password@127.0.0.1:6379/0?timeout=10s&maxidle=1")
-125 // Connection type2 example: 192.168.17.196:6379, session-redis.service.biznet.consul:6380
+123 //  Dial(&DialConfig{"tcp", "127.0.0.1:6379", 0, "", 10*time.Second, 10})
+124 //  DialURL("tcp://auth:password@127.0.0.1:6379/0?timeout=10s&maxidle=1")
 ```
 
 Problem is solvable using following regular expression:
