@@ -14,7 +14,7 @@ SELECT COUNT(*) FROM SAMPLE
 Following can help us get an "approximate" count of rows in postgres: 
 
 ```
-tkp-product-feed=> SELECT reltuples::BIGINT AS estimate FROM pg_class WHERE relname = 'product_feed'; 
+SAMPLEDB=> SELECT reltuples::BIGINT AS estimate FROM pg_class WHERE relname = 'SAMPLE'; 
  estimate 
 ----------
  54296044
