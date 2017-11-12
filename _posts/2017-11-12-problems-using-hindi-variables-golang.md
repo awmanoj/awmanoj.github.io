@@ -9,7 +9,7 @@ categories: tech
 
 It has managed to remain simple, performant, backward compatible (it's a promise by creators, think [python 2.7 vs 3.0 tussle](https://learntocodewith.me/programming/python/python-2-vs-python-3/)) and has some unique features (compared to popular modern programming languages) like the support for concurrent programming (channels, goroutines). 
 
-Apart from the main features of the language, there are some cute little things which go provides. One of them is that your variable names can be composed of any unicode characters. What does that mean? This means following is a valid program which compiles fine:
+Apart from the main features of the language, there are some cute little things which go provides. One of them is that your variable names can be composed of any unicode characters. What does that mean? This means, following program containing simplified chinese characters is a valid program which compiles and runs fine (you can try):
 
 ```
 import (
