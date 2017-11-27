@@ -68,3 +68,5 @@ For the curious, these are some of the issues related to this (latter added by R
 
 So, while "not holding my breath", will still be looking out for Go2.0 to support hindi names (Devanagri script).
 
+Note: Without the problematic characters, things worked well. 
+
