@@ -55,7 +55,7 @@ will convert the query into
                      ~;
 ```
 
-So, note how Perl showed its `intelligence` in converting the `0x245bf20` to `24520` (silently). 
+So, note how Perl showed its `intelligence` in converting the `0x245bf20` to `24520` (silently). Grr.
 
 This caused the intermittently occurring bug. Sometimes that memory address would resolve to a valid category ID in the marketplace and many times it won’t. When it doesn’t it leads to the error that leaf category ID is not present which in turn led to the “bad” error message “category not complete”. 
 
