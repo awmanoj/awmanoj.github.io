@@ -63,7 +63,7 @@ Side effect of dynamically typed language.
 
 Statically typed languages (C, C++, Java, Scala, Go etc) ensure type safety and would help avoid such pitfalls. 
 
-So be mindful about using the language carefully. If it is dynamically typed then you can expect no type safety so ensure proper validation (err towards more of it) to ensure rock solid code (if there is anything like that).
+So be mindful about using the language carefully. If it is dynamically typed then you can expect no type safety. So ensure proper validation (err towards more of it) to write rock solid code (if there is anything like that).
 
 :-) 
 
