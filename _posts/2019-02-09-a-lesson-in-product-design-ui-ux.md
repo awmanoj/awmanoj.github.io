@@ -29,9 +29,19 @@ Idea is that if it is so wrong, why is Google (the behemoth search engine) doing
 
 Later in the wee hours I thought testing some other web properties on this behavior and found mixed results. Following are the examples where they do highlight the searched (matched string): 
 
-<img src="/public/assets/img/bl.jpeg" width="200" />
-<img src="/public/assets/img/lz.jpeg" width="200" />
-<img src="/public/assets/img/fl.png" width="200" />
+<table>
+	<tr> 
+	<td>
+		<img src="/public/assets/img/bl.jpeg" width="200" />
+	</td>
+	<td>
+		<img src="/public/assets/img/lz.jpeg" width="200" />
+	</td>
+	<td>
+		<img src="/public/assets/img/fl.png" width="200" />
+	</td>
+	</tr>
+</table> 
 
 I take the liberty of calling this more of an Engineer driven approach. In this scenario, you basically limit yourself based on what the tool is providing you with (shares `matched string`) but in ideal scenario (again, taking liberty) you want user to follow certain paths based on what he or she has typed in and it is more important to highlight those parts (tool still helps since it is just inversion that need be done).
 
