@@ -11,7 +11,11 @@ With all the interruptions and distractions, I have never been able to sit for 4
 
 Today, came across following stats while browsing: 
 
-> The average adult reading speed is between 200 and 300 words per minute (same reading speed you want to achieve by 6th grade). For success in college you should be able to read 350 to 450 words per minute if you want to have any extra time. Speeds above 575 words per minute are typical for successful high level executives and people who enjoy reading.
+> The average adult reading speed is between 200 and 300 words per minute (same reading speed you want to achieve by 6th grade). 
+
+> For success in college you should be able to read 350 to 450 words per minute if you want to have any extra time. 
+
+> Speeds above 575 words per minute are typical for successful high level executives and people who enjoy reading.
 
 Reading in itself comprises of two things - 
 
