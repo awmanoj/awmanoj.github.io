@@ -1,6 +1,6 @@
 ---
 layout: post
-title: Covid-19, Work-from-home and a way towards first-principles thinking 
+title: Socratic questioning, a way towards first-principles thinking 
 author: Manoj Awasthi
 categories: life, learning
 ---
