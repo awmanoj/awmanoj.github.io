@@ -31,14 +31,37 @@
 		});
 	}
 
-	function StatusChangeCallback(response) {
-		console.log(response);
-	}
+  function statusChangeCallback(response) {  // Called with the results from FB.getLoginStatus().
+    console.log('statusChangeCallback');
+    console.log(response);                   // The current login status of the person.
+    if (response.status === 'connected') {   // Logged into your webpage and Facebook.
+      testAPI();  
+    } else {                                 // Not logged into your webpage or we are unable to tell.
+      document.getElementById('status').innerHTML = 'Please log ' +
+        'into this webpage.';
+    }
+  }
+
+	FB.getLoginStatus(function(response) {   // Called after the JS SDK has been initialized.
+		statusChangeCallback(response);        // Returns the login status.
+	});
+ 
+  function testAPI() {                      // Testing Graph API after login.  See statusChangeCallback() for when this call is made.
+    console.log('Welcome!  Fetching your information.... ');
+    FB.api('/me', function(response) {
+      console.log('Successful login for: ' + response.name);
+      document.getElementById('status').innerHTML =
+        'Thanks for logging in, ' + response.name + '!';
+    });
+  }
 
 	</script>  
 
 	<div class="fb-login-button" data-size="large" data-button-type="continue_with" data-layout="rounded" data-auto-logout-link="false" data-use-continue-as="false" data-width="" scope="public_profile,email" 
     onlogin="checkLoginState();"></div>
+
+	<div id="status">
+	</div>
 
 	<!-- 
 	<fb:login-button scope="public_profile,email" 
