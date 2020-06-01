@@ -3,6 +3,7 @@
 	<title>Connect more in real</title>
 </head>
 <body>
+	<div id="fb-root"></div>
 	<script>
   window.fbAsyncInit = function() {
     FB.init({
@@ -36,9 +37,13 @@
 
 	</script>  
 
+	<div class="fb-login-button" data-size="large" data-button-type="continue_with" data-layout="rounded" data-auto-logout-link="false" data-use-continue-as="false" data-width="" scope="public_profile,email" 
+    onlogin="checkLoginState();"></div>
+
+	<!-- 
 	<fb:login-button scope="public_profile,email" 
 		onlogin="checkLoginState();">
 	</fb:login-button>
-
+	-->
 </body>
 </html>
