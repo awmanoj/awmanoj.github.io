@@ -5,6 +5,7 @@
 <body>
 	<div id="fb-root"></div>
 	<script>
+	<!-- FB SDK Init -->
   window.fbAsyncInit = function() {
     FB.init({
       appId               : '250528246214792', // Facebook Application ID
@@ -14,7 +15,9 @@
       version             : 'v7.0'
     });
       
-    FB.AppEvents.logPageView();   
+    FB.AppEvents.logPageView();
+	
+		// check facebook login status on init 
 		FB.getLoginStatus(function(response) {   // Called after the JS SDK has been initialized.
 			statusChangeCallback(response);        // Returns the login status.
 		});
@@ -28,20 +31,22 @@
      fjs.parentNode.insertBefore(js, fjs);
    }(document, 'script', 'facebook-jssdk'));
 
+	// function to check login status on button click
 	function checkLoginState() {
 		FB.getLoginStatus(function(response) {
 			statusChangeCallback(response);
 		});
 	}
 
+	// callback on login
   function statusChangeCallback(response) {  // Called with the results from FB.getLoginStatus().
     console.log('statusChangeCallback');
     console.log(response);                   // The current login status of the person.
     if (response.status === 'connected') {   // Logged into your webpage and Facebook.
       testAPI();  
     } else {                                 // Not logged into your webpage or we are unable to tell.
-      document.getElementById('status').innerHTML = 'Please log ' +
-        'into this webpage.';
+			var fbLoginBtn = document.querySelector(".fb-login-button");
+			fbLoginBtn.style = "display:block";
     }
   }
  
@@ -49,14 +54,20 @@
     console.log('Welcome!  Fetching your information.... ');
     FB.api('/me', function(response) {
       console.log('Successful login for: ' + response.name);
-      document.getElementById('status').innerHTML =
-        'Thanks for logging in, ' + response.name + '!';
+			var fbLoginBtn = document.querySelector(".fb-login-button");
+			fbLoginBtn.style = "display:none";
     });
   }
 
 	</script>  
 
-	<div class="fb-login-button" data-size="large" data-button-type="continue_with" data-layout="rounded" data-auto-logout-link="false" data-use-continue-as="false" data-width="" scope="public_profile,email" 
+	<div class="fb-login-button" 
+			 data-size="large" 
+			 data-button-type="continue_with" 
+			 data-layout="rounded" 
+			 data-auto-logout-link="false" 
+			 data-use-continue-as="false" 
+			 data-width="" scope="public_profile,email" 
     onlogin="checkLoginState();"></div>
 
 	<div id="status">
