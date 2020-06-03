@@ -5,4 +5,4 @@ author: Manoj Awasthi
 categories: tech, algorithms
 ---
 
-<img src="/public/assets/timecomplexity.png" />
+<img src="/public/assets/img/timecomplexity.png" />
