@@ -7,4 +7,4 @@ categories: tech, algorithms
 
 <img src="/public/assets/img/timecomplexity.png" />
 
-* Assuming 100M ops per second operations on the machine.
+* Assuming 100M ops per second on the machine.
