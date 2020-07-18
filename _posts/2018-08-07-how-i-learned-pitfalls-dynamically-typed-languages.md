@@ -5,7 +5,7 @@ author: Manoj Awasthi
 categories: tech
 ---
 
-Dynamically typed languages (like Perl, Python, Ruby etc) are great for developer productivity or so they say. I agree to large extent but then for a large scale system with growing components and services this may become a nightmare to maintain. This is based on some of the learnings being on both sides.  
+Dynamically typed (weak types) languages (like Perl, Python, Ruby etc) are great for developer productivity or so they say. I agree to large extent but then for a large scale system with growing components and services this may become a nightmare to maintain. This is based on some of the learnings being on both sides.  
 
 In this post, want to discuss one interesting issue that I got reminded of while going through some archives and boils down to one of the perils of using a dynamically type language. 
 
