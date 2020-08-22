@@ -1,6 +1,6 @@
 ---
 layout: post
-title: A primer into isolation levels in databases
+title: A quick primer into isolation levels in databases
 author: Manoj Awasthi
 categories: tech, database, systems, concurrency
 ---
