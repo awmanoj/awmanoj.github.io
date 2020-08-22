@@ -7,7 +7,7 @@ categories: tech, database, systems, concurrency
 
 Transaction Processing is one big source of complexity in correctly designing concurrent applications working with database systems. 
 
-> A transaction is defined as one indivisible logical entity comprising usually of more than one operations which are meant to be considered a single step that either is succes or a failure. This unit of work should act as if the operations are atomic. 
+> A transaction is defined as one indivisible logical entity comprising usually of more than one operations which are meant to be considered a single step that either is success (a 'commit') or a failure (an 'abort'). This unit of work should act as if the operations are atomic. 
 
 This is quite important to keep the state of database in a consistent state at all the time and being adherant with ACID semantics. 
 
