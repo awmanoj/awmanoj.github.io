@@ -21,7 +21,7 @@ An isolation level specifies 'how' and 'when' parts of the transaction can and s
 
 > Isolation levels describe the degree to which transactions are isolated from other concurrently executing transactions, and what kind of anomalies can be expected in each.
 
-# Possible Read and Write anomalies specified SQL standard
+# Possible Read and Write anomalies specified by SQL standards
 
 ## Read anomalies
 
@@ -43,7 +43,7 @@ The next isolation level is **Read committed** that allows transactions only to 
 
 The next isolation level is **Repeatable Read** that does not allow dirty read and also takes care of nonrepeatable reads but suffers still from phantom reads.
 
-The strongest isolation level is ofcourse **Serializablle** where all transactions are executed serially. This has significant negative impact on performance and hence not a practical choice.
+The strongest isolation level is ofcourse **Serializable** where all transactions are executed serially. This has significant negative impact on performance and hence not a practical choice.
 
 # Summary 
 
