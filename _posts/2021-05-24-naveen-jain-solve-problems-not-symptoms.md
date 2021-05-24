@@ -1,6 +1,6 @@
 ---
 layout: post
-title: Solve Problems, Not Symptoms: Interview with Naveen Jain
+title: Solve Problems, Not Symptoms - An Interview with Naveen Jain
 author: Manoj Awasthi
 categories: tech, vision
 ---
