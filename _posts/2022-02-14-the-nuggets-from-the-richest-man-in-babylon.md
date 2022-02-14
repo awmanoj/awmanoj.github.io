@@ -5,6 +5,8 @@ author: Manoj Awasthi
 categories: books
 ---
 
+![The Richest Man In Babylon Book Cover](/public/assets/img/trmib.jpeg)
+
 I finished reading this popular book [The Richest Man In Babylon](https://www.amazon.in/RICHEST-MAN-BABYLON-George-Clason/dp/9355200552/) by George S. Clason and can testimony the amount of wisdom in the book around financial success.
 
 Following are bunch of nuggets of wisdom from the book.
