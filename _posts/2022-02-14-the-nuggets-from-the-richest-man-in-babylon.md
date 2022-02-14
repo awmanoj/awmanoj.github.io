@@ -137,7 +137,7 @@ Following are bunch of nuggets of wisdom from the book.
 
 and the one which is my most favorite is in the last chapter, about 'Work':
 
-> "Some men hate it. They make it their enemy. Better to treat it like a friend, make thyself like it. Don't mind because it is hard. If thou thinkest about what a good house thou build, then who cares if the beams are heavy and it is far from the well to carry the water for the plaster. Promise me, boy, if thou get a master, work for him as hard as thou canst. If he does not appreciate all thou do, never mind. Remember, work well-done, does good to the man who does it. It makes him a better man. 
+> "Some men hate it. They make it their enemy. Better to treat it like a friend, make thyself like it. Don't mind because it is hard. If thou thinkest about what a good house thou build, then who cares if the beams are heavy and it is far from the well to carry the water for the plaster. Promise me, boy, if thou get a master, work for him as hard as thou canst. If he does not appreciate all thou do, never mind. Remember, work well-done, does good to the man who does it. It makes him a better man." 
 
 
 A recommended read.
