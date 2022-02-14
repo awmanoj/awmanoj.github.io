@@ -52,20 +52,22 @@ Following are bunch of nuggets of wisdom from the book.
 > "More interest in my work, more concentration upon my task , more persistence in my effort and, behold few men could carve more tablets in a day than I."
 
 > 7 Curses for a lean purse 
-	> Start thy purse to fattening. Keep at least one-tenth of your earnings for yourself.
-	> Control thy expenditures. Have a budget. Budget thy expenses. 
-	>  Make thy gold multiply. 
-	> Guard thy treasures from loss. The first sound principle of investment is security for thy principal. Consult with wise men. 
-	> Own thy own home. 
-	> Provide in advance for the needs of thy growing age and the protection of thy family. Insure a future income (retirement and in case of fatalities). 
-	> Increase they ability to earn. 
+
+* Start thy purse to fattening. Keep at least one-tenth of your earnings for yourself.
+* Control thy expenditures. Have a budget. Budget thy expenses. 
+* Make thy gold multiply. 
+* Guard thy treasures from loss. The first sound principle of investment is security for thy principal. Consult with wise men. 
+* Own thy own home. 
+* Provide in advance for the needs of thy growing age and the protection of thy family. Insure a future income (retirement and in case of fatalities). 
+* Increase they ability to earn. 
 
 > Such things as following, a man must do if he respects himself:
-	> He must pay his debts with all the promptness within his power, not purchasing that for which he is unable to pay. 
-	> He must take care of his family that they may think and speak well of him. 
-	> He must make a will of record that, in case Gods call him, proper and honorable division of his property be accomplished. 
-	> He must have compassion and upon those who are smitten by misfortune and aid them within reasonable limits. He must do deeds of thoughtfulness to those dear to him. 
-	> He must cultivate himself, study and become wiser to become more skilful and respect him more. 
+
+* He must pay his debts with all the promptness within his power, not purchasing that for which he is unable to pay. 
+* He must take care of his family that they may think and speak well of him. 
+* He must make a will of record that, in case Gods call him, proper and honorable division of his property be accomplished. 
+* He must have compassion and upon those who are smitten by misfortune and aid them within reasonable limits. He must do deeds of thoughtfulness to those dear to him. 
+* He must cultivate himself, study and become wiser to become more skilful and respect him more. 
 	  
 > "Opportunity stands for no man. Today it is here. Soon it is gone. Therefore, delay not!"
 
@@ -82,11 +84,12 @@ Following are bunch of nuggets of wisdom from the book.
 > "Men of action please the goddess of opportunity the best" 
 
 > Five laws of Gold 
-	> Gold cometh gladly and in increasing quantity to any man who will put by not less than one-tenth of his earnings to create an estate for his future and that of his family. 
-	> Gold laboreth diligently and contentedly for the wise owner who finds for it profitable employment, multiplying even. 
-	> Gold clingeth to the protection of the cautious owner who invests it under the advise of men wise in its handling. 
-	> Gold slippeth away from the man who invests it in businesses or purposes with which he is not familiar. 
-	> Gold flees the man who would force it to impossible earnings or who followeth the alluring advice of tricksters and schemers or who trusts it to his own inexperience and romantic desires in investments. 
+
+* Gold cometh gladly and in increasing quantity to any man who will put by not less than one-tenth of his earnings to create an estate for his future and that of his family. 
+* Gold laboreth diligently and contentedly for the wise owner who finds for it profitable employment, multiplying even. 
+* Gold clingeth to the protection of the cautious owner who invests it under the advise of men wise in its handling. 
+* Gold slippeth away from the man who invests it in businesses or purposes with which he is not familiar. 
+* Gold flees the man who would force it to impossible earnings or who followeth the alluring advice of tricksters and schemers or who trusts it to his own inexperience and romantic desires in investments. 
 
 > "There is no chain of disasters that will not come to an end" 
 
@@ -105,9 +108,10 @@ Following are bunch of nuggets of wisdom from the book.
 > "Help wisely!"
 
 > Where the gold can be lent: 
-	> The safest loans, my token box tells me, are to those whose possessions are of more value than the one they desire. They own lands, or jewels, or camels, or other thing which could be sold to repay the loan. Some of the tokens given to me are jewels of more value than the loan. Others are promises that if the loan be not repaid as agreed they will deliver to me certain property settlement. On loans like those I am assured that my gold will be returned with the rental thereon. 
-	> In another class are those who have the capacity to earn. They are such as you, who labor or server and are paid. They have income and if they are honest and suffer no misfortune, I know that they also can repay the gold I loan them and the rental to which I am entitled. 
-	> Others are those who have neither the property nor assured earning capacity. Life is hard and there will always be some who cannot adjust themselves to it. Alas for the loans I make them, even though they be no larger than a pence, my token box may censure me in the years to come unless they be guaranteed by good friends of the borrowers who know him honourable. 
+
+* The safest loans, my token box tells me, are to those whose possessions are of more value than the one they desire. They own lands, or jewels, or camels, or other thing which could be sold to repay the loan. Some of the tokens given to me are jewels of more value than the loan. Others are promises that if the loan be not repaid as agreed they will deliver to me certain property settlement. On loans like those I am assured that my gold will be returned with the rental thereon. 
+* In another class are those who have the capacity to earn. They are such as you, who labor or server and are paid. They have income and if they are honest and suffer no misfortune, I know that they also can repay the gold I loan them and the rental to which I am entitled. 
+* Others are those who have neither the property nor assured earning capacity. Life is hard and there will always be some who cannot adjust themselves to it. Alas for the loans I make them, even though they be no larger than a pence, my token box may censure me in the years to come unless they be guaranteed by good friends of the borrowers who know him honourable. 
 
 > "If they borrow for purposes that bring money back to them, I find it so [borrowers repaying their loans]. But if they borrow because of their indiscretions, I warn thee to be cautious if thou wouldst ever have thy gold back in hand again." 
 
@@ -126,9 +130,10 @@ Following are bunch of nuggets of wisdom from the book.
 > "Where the determination is, the way can be found"
   
 > Plan for debt free life
-	> First, one-tenths of all I earn shall be set aside as my own to keep. 
-	> Second, seven-tenths of all I earn shall be used to provide a home, clothes to wear, and food to eat with a bit extra to spend, that our lives be not lacking in pleasure and enjoyment. 
-	> Third, two-tenths of all I have earned shall be divided honorably and fairly among those who have trusted me and to whom I am indebted. 
+
+*  First, one-tenths of all I earn shall be set aside as my own to keep. 
+* Second, seven-tenths of all I earn shall be used to provide a home, clothes to wear, and food to eat with a bit extra to spend, that our lives be not lacking in pleasure and enjoyment. 
+* Third, two-tenths of all I have earned shall be divided honorably and fairly among those who have trusted me and to whom I am indebted. 
 
 and the one which is my most favorite is in the last chapter, about 'Work':
 
