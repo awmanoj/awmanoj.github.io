@@ -1,6 +1,6 @@
 ---
 layout: post
-title: The nuggets of wisdom from the book 'The Richest Man In Babylon'
+title: Nuggets of wisdom from the book 'The Richest Man In Babylon'
 author: Manoj Awasthi
 categories: books
 ---
