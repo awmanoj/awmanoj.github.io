@@ -21,5 +21,25 @@ This page contains conda packages for M1 Silicon.
 
 Direct link - https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-ppc64le.sh
 
+Install pip3:
+
+```
+$ curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+$ python3 get-pip.py
+```
+
+Install jupyterlab:
+
+```
+$ pip3 install jupyterlab
+```
+
+Install notebook:
+
+```
+$ pip3 install notebook
+```
+
+
 Have fun!
 
