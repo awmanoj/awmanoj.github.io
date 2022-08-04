@@ -5,7 +5,7 @@ author: Manoj Awasthi
 categories: life, death
 ---
 
-The discussion about death is usually considered morbid and is avoided in most cultures that I've grown in although it remains the most certain and inescapable event for all mortals.
+The discussion about death is usually considered morbid and is avoided in most cultures that I've grown in despite the fact that it remains the most certain and inescapable event for all mortals.
 
 While walking today, I thought I would go and read about the odds of dying from different causes. Looks like, lot of studies have happened in different parts of the world. 
 
