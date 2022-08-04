@@ -43,5 +43,7 @@ Following is a summary of some of the probabilities of deaths in United States p
 
 Source: [InjuryFacts](https://injuryfacts.nsc.org/all-injuries/preventable-death-overview/odds-of-dying/)
 
-I would really want to find and prepare similar data for India (2020+) and possibly, Indonesia (2020+). If you have come across any published data source related to this then please do help share on [Twitter](http://twitter.com/awmanoj) or [Mail me](mailto:awasthi.manoj@gmail.com).
+Just looking at different cause heads, I feel that these odds will look so different for developing nations.I would really want to find and prepare similar data for India (2020+) and possibly, Indonesia (2020+). 
+
+If you have come across any published data source related to this then please do help share on [Twitter](http://twitter.com/awmanoj) or [Mail me](mailto:awasthi.manoj@gmail.com).
 
