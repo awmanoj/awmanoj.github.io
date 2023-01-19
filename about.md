@@ -17,6 +17,6 @@ Thanks to technology, world is more connected today than it ever was. You can co
 
 You can check what photos I click either at [my blog](http://whaticlickedtoday.wordpress.com/) OR on [flickr](http://www.flickr.com/photos/awmanoj).You can check what I code at [Github](https://github.com/awmanoj).
 
-In the past, I have worked at [Adobe](https://www.adobe.com/) in India and led engineering teams at [Tokopedia](https://www.tokopedia.com), one of the largest marketplaces in Indonesia and live in Jakarta, Indonesia.
+In the past, I have worked at [Adobe](https://www.adobe.com/) in India and led engineering teams at [Tokopedia](https://www.tokopedia.com), one of the largest marketplaces in Indonesia. I live in Jakarta, Indonesia.
 
 Currently, I lead the technology as CTO at [JULO](https://www.julo.co.id/), a fintech in Indonesia working towards credit access to the underbanked population.
