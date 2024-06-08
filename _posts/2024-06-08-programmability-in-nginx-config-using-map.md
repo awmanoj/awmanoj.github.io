@@ -105,4 +105,6 @@ Finally, we can use this for additional logic in the location block:
 	}
 ```
 
-And that was it. Quite a learning, followed by the excitement to share it and hence this post!!
+And that was it. 
+
+Quite a learning, followed by the excitement to share it and hence this post!!
