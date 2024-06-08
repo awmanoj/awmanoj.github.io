@@ -19,7 +19,9 @@ nginx: configuration file /etc/nginx/nginx.conf test is successful
 $ nginx -s reload
 ```
 
-Don't get disheartened. This post is not a general manual for NGINX. It is about something I discovered today while experimenting on something for a friend. This person wants to run a simple web tool and serve it on different end points for different employees.
+Don't get disheartened. 
+
+This post is not a general manual for NGINX. It is about something I discovered today while experimenting on something for a friend. This person wants to run a simple web tool and serve it on different end points for different employees.
 
 ```
 http://example.com/it/review-1
