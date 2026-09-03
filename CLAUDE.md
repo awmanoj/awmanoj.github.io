@@ -21,7 +21,7 @@ Analytics (`_includes/analytics.html`) is included only when `jekyll.environment
 
 ## Content
 
-Posts live in `_posts/YYYY-MM-DD-slug.md`. `permalink: pretty` means the URL is `/YYYY/MM/DD/slug/`. Front matter convention used throughout:
+Posts live in `_posts/YYYY-MM-DD-slug.md`. Front matter convention used throughout:
 
 ```yaml
 ---
@@ -32,7 +32,7 @@ categories: tech
 ---
 ```
 
-`categories` is a free-form comma list (`tech`, `life`, `books`, `tech, algorithms`, …); nothing renders category pages today, so it's metadata only.
+`categories` is load-bearing for URLs. `permalink: pretty` expands to `/:categories/:year/:month/:day/:title/`, so the post above lives at `/tech/2024/06/08/programmability-in-nginx-config-using-map/` — not at `/2024/06/08/...`. A multi-value list produces a path segment per category *including the comma*: `categories: life, death` yields the live URL `/life,/death/2022/08/04/probability-of-death-by-different-causes/`. Editing `categories` on a published post changes its URL and breaks inbound links.
 
 Standalone pages at the repo root (`about.md`) use `layout: page`. **That layout choice is load-bearing:** `_includes/sidebar.html` builds the nav by iterating `site.pages` and emitting a link for every page whose layout is `page`. Anything else is invisible in the nav; conversely, giving a new page `layout: page` silently adds it to the sidebar. Extra sidebar links (Books, GitHub projects, feed) are hardcoded in that include.
 
