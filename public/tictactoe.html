@@ -521,7 +521,7 @@
                         move = Math.random() < 0.5 ? getOptimalMove() : getRandomMove();
                         break;
                     case 'hard':
-                        move = getOptimalMove();
+                        move = getPerfectMove();
                         break;
                     default:
                         move = getRandomMove();
@@ -541,6 +541,70 @@
                 return emptyCells[Math.floor(Math.random() * emptyCells.length)];
             }
 
+            function opponentOf(player) {
+                return player === 'x' ? 'o' : 'x';
+            }
+
+            function getWinner(board) {
+                for (const [a, b, c] of winPatterns) {
+                    if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+                        return board[a];
+                    }
+                }
+                return null;
+            }
+
+            // Score a position from `me`'s point of view, with `turn` to move.
+            // Depth is folded into the score so the search prefers winning
+            // sooner and losing later.
+            function minimax(board, me, turn, depth) {
+                const winner = getWinner(board);
+                if (winner === me) return 10 - depth;
+                if (winner) return depth - 10;
+                if (!board.includes('')) return 0;
+
+                const maximizing = turn === me;
+                let best = maximizing ? -Infinity : Infinity;
+
+                for (let i = 0; i < 9; i++) {
+                    if (board[i] !== '') continue;
+                    board[i] = turn;
+                    const score = minimax(board, me, opponentOf(turn), depth + 1);
+                    board[i] = '';
+                    best = maximizing ? Math.max(best, score) : Math.min(best, score);
+                }
+
+                return best;
+            }
+
+            // Hard: perfect play. Picks at random among equally-good moves so
+            // repeat games are not identical.
+            function getPerfectMove() {
+                const board = state.board.slice();
+                const me = state.currentPlayer;
+                let bestScore = -Infinity;
+                let bestMoves = [];
+
+                for (let i = 0; i < 9; i++) {
+                    if (board[i] !== '') continue;
+                    board[i] = me;
+                    const score = minimax(board, me, opponentOf(me), 1);
+                    board[i] = '';
+
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestMoves = [i];
+                    } else if (score === bestScore) {
+                        bestMoves.push(i);
+                    }
+                }
+
+                if (bestMoves.length === 0) return null;
+                return bestMoves[Math.floor(Math.random() * bestMoves.length)];
+            }
+
+            // Heuristic used by Medium: win, block, then take the best-looking
+            // square. Beatable by design.
             function getOptimalMove() {
                 if (state.board.every(cell => cell === '')) {
                     return Math.random() < 0.7 ? 4 : [0, 2, 6, 8][Math.floor(Math.random() * 4)];
